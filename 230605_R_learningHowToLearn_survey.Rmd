@@ -3,18 +3,6 @@ title: "R_learningHowToLearn"
 author: "Alison C. Holland"
 date: "2023-05-16"
 output: html_document
----
-
-Manually cleaning the raw data before running the R script
-----------------------------------------------------------
-- remove columns A-G (up to Q1)
-- add 2 extra columns at the beginning and add userType ('users' and 'nonusers') and market ('uk' and 'dach')
-- add in text values into columns where appropriate, or create new column and also add in extra columns in code
-- remove email column (last column should be gender column)
-- remove all of Ruben's questions
-- remove columns at the end that are blank
-- remove last row with totals
-- save as .xlsx
 
 ================================================================================
 
@@ -67,7 +55,7 @@ Get and set working directory
 getwd()
 
 # set working directory
-setwd("/Users/alison/Documents/R_scripts")
+setwd("/Users/xxx")
 getwd()
 ```
 
@@ -77,7 +65,7 @@ Load and organise data
 
 ```{r}
 # load data
-data <- read_excel("230605_RubenSurvey_all.xlsx")
+data <- read_excel("data.xlsx")
 
 # rename columns 
 names(data) <- c(
