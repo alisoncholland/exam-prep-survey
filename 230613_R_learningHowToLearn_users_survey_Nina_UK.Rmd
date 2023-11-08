@@ -1,0 +1,2486 @@
+---
+title: "230314_R_learningHowToLearn"
+author: "Alison C. Holland"
+date: "2023-03-14"
+output: html_document
+---
+
+Manually cleaning the raw data before running the R script
+----------------------------------------------------------
+- remove columns A-G (up to Q1)
+- add extra column at the beginning and add 'users' and 'nonusers'
+- combine users & non-users data for each market
+- remove email column (last column should be gender column)
+- remove all of Ruben's questions
+- remove columns at the end that are blank
+- remove last row with totals
+- save as .xlsx
+
+What to edit in code
+--------------------
+- working directory
+- create 2 separate scripts for DACH and UK surveys
+
+UK & DACH surveys:
+- add additional columns on 'general approach' (after 'other approach' section). You can use these: 
+  # how they used general
+  "generalApproach_text",
+  # idea to use general
+  "generalApproachFriend",
+  "generalApproachUpperclassman",
+  "generalApproachTeacher",
+  "generalApproachUniForum",
+  "generalApproachInternet",
+  "generalApproachOnlineForum",
+  "generalApproachPrevExam",
+  "generalApproachIdea",
+  # why use general
+  "generalApproachWhy_text",
+  "generalApproachChange_text",
+  
+UK surveys only:
+- Combine pilot study results
+
+DACH surveys only:
+- When renaming columns, add in additional variable under '# what they did to prepare' e.g. 'englishMaterial' for additional option "Ich habe englischsprachige Quellen oder Materialien in meinen Vorbereitungen genutzt"
+- update names of competitors
+
+Additional analyses
+-------------------
+- What additional analyses could we do? E.g. should we merge the answers of the 'general approach' and 'other approach'?
+- Why are these additional analyses important? What will they tell us?
+- See for reference: https://razzmatazz-coati-48cc.dovetailapp.com/projects/4tyX5O14nrPxyLznDmwLaE/insights/present/2gwwPnr1rsSKktw0ypcyyL 
+
+================================================================================
+
+Download and load libraries
+```{r}
+# download libraries
+#install.packages("DBI") # needed for dplyr
+#install.packages("Rcpp") # needed for dplyr
+#install.packages("plyr")
+#install.packages("dplyr")
+#install.packages("tidyr")
+#install.packages("readxl")
+#install.packages("ggplot2")
+#install.packages("fmsb")
+#install.packages("data.table")
+#install.packages("janitor")
+#install.packages("psych")
+#install.packages("likert")
+#install.packages("stopwords")
+#install.packages("rJava")
+#install.packages("qdap")
+#install.packages("tm")
+#install.packages("tidytext")
+#install.packages("stringr")
+#install.packages("DBI")
+
+# load libraries
+library(DBI) # needed for dplyr
+library(Rcpp) # needed for dplyr
+library(plyr)
+library(dplyr)
+library(tidyr)
+library(readxl)
+library(ggplot2)
+library(fmsb)
+#library(data.table)
+library(janitor)
+library(psych)
+library(likert)
+#library(stopwords)
+#library(rJava)
+#library(qdap)
+#library(tm)
+#library(tidytext)
+#library(stringr)
+```
+
+Get and set working directory
+```{r}
+# get working directory
+getwd()
+
+# set working directory
+setwd("C:/Users/ninaz/Documents/R analysis/How do we learn")
+getwd()
+```
+
+
+Satisfaction Ratings
+--------------------
+
+Load and organise data
+```{r}
+# load data
+data <- read_excel("UK_HDWL_survey_results070623_v2.xlsx")
+
+# rename columns 
+names(data) <- c(
+  "userType",
+  "eduLevel",
+  "country",
+  # edTech using
+  "anki",
+  "brainyoo",
+  "charlyEducation",
+  "courseHero",
+  "duolingo",
+  "evernote",
+  "forest",
+  "foxit",
+  "goconqr",
+  "goodNotes",
+  "khanAcademy",
+  "notability",
+  "oneNote",
+  "quizlet",
+  "repetico",
+  "stuDocu",
+  "studyDrive",
+  "youtube",
+  "notion",
+  "stSm",
+  "notUsing",
+  "otherEdTech",
+  # current subject
+  "subject",
+  # recent exam
+  "recentExam_text",
+  # what they did to prepare
+  "planScheduleList",
+  "notes",
+  "practicedMockExams",
+  "practicedExercises",
+  "createdNewMaterial",
+  "createdFC",
+  "practicedFC",
+  "watchedEdVids",
+  "otherPrep",
+  # results
+  "receivedResults",
+  "outcomeResultsRating",
+  "changedPrep_text",
+  # approach to scheduling, planning, listing, etc.
+  "scheduleApproach",
+  "listsApproach",
+  "otherApproach",
+  # how they used the schedule 
+  "scheduleFormat",
+  "scheduleCombinedModules",
+  "scheduleTopicsOnDifDays",
+  "schedulePrioTopics",
+  "scheduleInclSpecTasks",
+  "scheduleInclStudyGroupSessions",
+  "scheduleInclDeadlines",
+  "scheduleBufferTime",
+  "scheduleOtherActivitiesTime",
+  "scheduleGatherAndOrgMaterials",
+  "scheduleMaterialCreationSessions",
+  "scheduleRevisingAndTestingSessions",
+  "scheduleMockExamSessions",
+  "scheduleOtherHow",
+  # when they used the schedule
+  "scheduleThroughOutSemester",
+  "scheduleExamPhase",
+  "scheduleEverySession",
+  "scheduleDayToDay",
+  "scheduleEveryWeek",
+  "scheduleEveryMonth",
+  "scheduleOtherWhen",
+  # idea to use schedule
+  "scheduleFriend",
+  "scheduleUpperclassman",
+  "scheduleTeacher",
+  "scheduleUniForum",
+  "scheduleInternet",
+  "scheduleOnlineForum",
+  "schedulePrevExam",
+  "scheduleOtherIdea",
+  # why use schedule
+  "scheduleWhy_text",
+  "scheduleChange_text",
+  # how they used the list 
+  "listFormat",
+  "listCombinedModules",
+  "listTopicsOnDifDays",
+  "listPrioTopics",
+  "listInclSpecTasks",
+  "listInclStudyGroupSessions",
+  "listInclDeadlines",
+  "listBufferTime",
+  "listOtherActivitiesTime",
+  "listGatherAndOrgMaterials",
+  "listMaterialCreationSessions",
+  "listRevisingAndTestingSessions",
+  "listMockExamSessions",
+  "listOtherHow",
+  # when they used the list
+  "listDayToDay",
+  "listEveryWeek",
+  "listEveryMonth",
+  "listThroughOutSemester",
+  "listExamPhase",
+  "listOtherWhen",
+  # idea to use list
+  "listFriend",
+  "listUpperclassman",
+  "listTeacher",
+  "listUniForum",
+  "listInternet",
+  "listOnlineForum",
+  "listPrevExam",
+  "listOtherIdea",
+  # why use list
+  "listWhy_text",
+  "listChange_text",
+  # how they used other
+  "otherApproach_text",
+  # idea to use other
+  "otherApproachFriend",
+  "otherApproachUpperclassman",
+  "otherApproachTeacher",
+  "otherApproachUniForum",
+  "otherApproachInternet",
+  "otherApproachOnlineForum",
+  "otherApproachPrevExam",
+  "otherApproachIdea",
+  # why use other
+  "otherApproachWhy_text",
+  "otherApproachChange_text",
+  # how they used general
+  "generalApproach_text",
+  # idea to use general
+  "generalApproachFriend",
+  "generalApproachUpperclassman",
+  "generalApproachTeacher",
+  "generalApproachUniForum",
+  "generalApproachInternet",
+  "generalApproachOnlineForum",
+  "generalApproachPrevExam",
+  "generalApproachIdea",
+  # why use general
+  "generalApproachWhy_text",
+  "generalApproachChange_text",
+   # share an image
+  "shareImage",
+  # gender
+  "gender")
+
+# remove top row
+data <- data[-c(1), ]
+
+# filter out Bachelors students
+data <- data %>%
+  dplyr::filter(eduLevel == "Bachelor's degree or equivalent")
+
+# add in ID column
+data$ID <- seq.int(nrow(data))
+
+# move ID column to first column
+data <- data %>%
+  select(ID, everything())
+
+# convert number columns from character to numeric
+cols_num <- c(
+  # edTech using
+  "anki",
+  "brainyoo",
+  "charlyEducation",
+  "courseHero",
+  "duolingo",
+  "evernote",
+  "forest",
+  "foxit",
+  "goconqr",
+  "goodNotes",
+  "khanAcademy",
+  "notability",
+  "oneNote",
+  "quizlet",
+  "repetico",
+  "stuDocu",
+  "studyDrive",
+   "youtube",
+  "notion",
+  "stSm",
+  "notUsing",
+  # what they did to prepare
+  "planScheduleList",
+  "notes",
+  "practicedMockExams",
+  "practicedExercises",
+  "createdNewMaterial",
+  "createdFC",
+  "practicedFC",
+  "watchedEdVids",
+  # approach to scheduling, planning, listing, etc.
+  "scheduleApproach",
+  "listsApproach",
+  "otherApproach",
+  # how they used the schedule 
+  "scheduleCombinedModules",
+  "scheduleTopicsOnDifDays",
+  "schedulePrioTopics",
+  "scheduleInclSpecTasks",
+  "scheduleInclStudyGroupSessions",
+  "scheduleInclDeadlines",
+  "scheduleBufferTime",
+  "scheduleOtherActivitiesTime",
+  "scheduleGatherAndOrgMaterials",
+  "scheduleMaterialCreationSessions",
+  "scheduleRevisingAndTestingSessions",
+  "scheduleMockExamSessions",
+  # when they used the schedule
+  "scheduleThroughOutSemester",
+  "scheduleExamPhase",
+  "scheduleEverySession",
+  "scheduleDayToDay",
+  "scheduleEveryWeek",
+  "scheduleEveryMonth",
+  # idea to use schedule
+  "scheduleFriend",
+  "scheduleUpperclassman",
+  "scheduleTeacher",
+  "scheduleUniForum",
+  "scheduleInternet",
+  "scheduleOnlineForum",
+  "schedulePrevExam",
+  # how they used the list 
+  "listCombinedModules",
+  "listTopicsOnDifDays",
+  "listPrioTopics",
+  "listInclSpecTasks",
+  "listInclStudyGroupSessions",
+  "listInclDeadlines",
+  "listBufferTime",
+  "listOtherActivitiesTime",
+  "listGatherAndOrgMaterials",
+  "listMaterialCreationSessions",
+  "listRevisingAndTestingSessions",
+  "listMockExamSessions",
+  # when they used the list
+  "listDayToDay",
+  "listEveryWeek",
+  "listEveryMonth",
+  "listThroughOutSemester",
+  "listExamPhase",
+  # idea to use list
+  "listFriend",
+  "listUpperclassman",
+  "listTeacher",
+  "listUniForum",
+  "listInternet",
+  "listOnlineForum",
+  "listPrevExam",
+  # idea to use other
+  "otherApproachFriend",
+  "otherApproachUpperclassman",
+  "otherApproachTeacher",
+  "otherApproachUniForum",
+  "otherApproachInternet",
+  "otherApproachOnlineForum",
+  "otherApproachPrevExam",
+# how they used general
+  "generalApproach_text",
+  # idea to use general
+  "generalApproachFriend",
+  "generalApproachUpperclassman",
+  "generalApproachTeacher",
+  "generalApproachUniForum",
+  "generalApproachInternet",
+  "generalApproachOnlineForum",
+  "generalApproachPrevExam",
+  "generalApproachIdea",
+  # why use general
+  "generalApproachWhy_text",
+  "generalApproachChange_text")
+  
+data[, cols_num] <- lapply(cols_num, function(x) as.numeric(data[[x]]))
+
+# total up all columns
+data <- data %>%
+  adorn_totals("row")
+
+```
+
+------------------------------------------
+Resources used between users vs. non-users
+------------------------------------------
+```{r}
+# users
+dataResources_users <- data %>%
+  # filter users
+  filter(userType == "user") %>%
+  # select columns
+  select(ID,
+         anki,
+         brainyoo,
+         charlyEducation,
+         courseHero,
+         duolingo,
+         evernote,
+         forest,
+         foxit,
+         goconqr,
+         goodNotes,
+         khanAcademy,
+         notability,
+         oneNote,
+         quizlet,
+         repetico,
+         stuDocu,
+         studyDrive,
+         youtube,
+         notion,) 
+
+# total up all columns
+dataResources_users <- dataResources_users %>%
+  untabyl() %>% 
+  adorn_totals("row") %>%
+  filter(ID == "Total")
+
+dataResources_users <- dataResources_users %>%
+  # gather into 2 columns
+  gather("resources", "usersCount", 2:20) %>%
+  # remove ID column
+  select(resources, usersCount)
+
+# non-users
+dataResources_nonusers <- data %>%
+   # filter non-users
+  filter(userType == "nonuser") %>%
+  # select columns
+  select(ID,
+         anki,
+         brainyoo,
+         charlyEducation,
+         courseHero,
+         duolingo,
+         evernote,
+         forest,
+         foxit,
+         goconqr,
+         goodNotes,
+         khanAcademy,
+         notability,
+         oneNote,
+         quizlet,
+         repetico,
+         stuDocu,
+         studyDrive,
+         youtube,
+         notion) 
+
+# total up all columns
+dataResources_nonusers <- dataResources_nonusers %>%
+  untabyl() %>% 
+  adorn_totals("row") %>%
+  filter(ID == "Total")
+
+dataResources_nonusers <- dataResources_nonusers %>%
+# filter last row of totals
+  filter(ID == "Total") %>%
+  # gather into 2 columns
+  gather("resources", "nonusersCount", 2:20) %>%
+  # remove ID column
+  select(resources, nonusersCount)
+
+# join user and nonuser data sets
+data_resources <- left_join(dataResources_users, dataResources_nonusers, by = "resources")
+
+# gather data for bar graph
+data_resources <- data_resources %>%
+  gather("userType", "total_count", 2:3)
+data_resources
+
+# rename values in columns
+data_resources['userType'][data_resources['userType'] == 'usersCount'] <- 'Users'
+data_resources['userType'][data_resources['userType'] == 'nonusersCount'] <- 'Non-users'
+data_resources
+
+# rename labels in graph - don't do
+#prep_x_labels <- c("Created FC",
+#                   "Created new material",                 
+#                   "Created notes", 
+#                   "Used schedule or list",
+#                   "Practiced exercises",
+#                   "Practiced FC", 
+#                   "Practiced mock exams", 
+#                   "Watched educational videos")
+#prep_fill_labels <- c("Non-users",
+#                      "Users")
+
+# plot graph - users vs. non-users
+ggplot(data_resources, 
+       aes(x = reorder(resources, total_count), 
+           y = total_count, 
+           fill = userType)) +
+  geom_bar(stat = "identity", 
+           position = position_dodge()) +
+  labs(fill = "Participants",
+       x = "Resources",
+       y = "Total count") +
+  # change angle of labels on x-axis
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1)) #+
+#  scale_x_discrete(labels = prep_x_labels) +
+#  scale_fill_discrete(labels = prep_fill_labels)
+
+```
+
+
+-------------------------------------------------------------------------
+Satisfaction ratings between users who have vs. have not received results
+-------------------------------------------------------------------------
+Users
+-----
+```{r}
+# select columns
+data_ratings <- data %>%
+  select(receivedResults, outcomeResultsRating) 
+
+# group by count of multiple columns: https://sparkbyexamples.com/r-programming/group-by-count-in-r/
+data_ratings <- data_ratings %>% group_by(receivedResults, outcomeResultsRating) %>%
+  summarise(total_count = n(),.groups = 'drop') %>%
+  as.data.frame()
+data_ratings
+
+# filter out unwanted rows
+data_ratings <- data_ratings %>%
+  filter(receivedResults != "-")
+
+# change satisfaction levels from character to factor
+#levels(as.factor(data_ratings$outcomeResultsRating))
+
+# change total_count to numeric from integer
+data_ratings$total_count <- as.numeric(data_ratings$total_count)
+
+# plot graph
+#ggplot(data_ratings, 
+#       aes(x = receivedResults, 
+#           y = total_count)) +
+#  geom_col(aes(fill = factor(outcomeResultsRating, 
+#                             levels = c(
+#                               "Very Unsatisfied", 
+#                               "Unsatisfied",
+#                               "Neither unsatisfied nor satisfied",
+#                               "Satisfied",
+#                               "Very Satisfied",
+#                               "Unsure")))) +
+#  labs(fill = "Ratings",
+#       x = "Received results",
+#       y = "Total count") 
+
+# rename values in columns 
+data_ratings['outcomeResultsRating'][data_ratings['outcomeResultsRating'] == 'Very Satisfied'] <- '5 Very satisfied'
+data_ratings['outcomeResultsRating'][data_ratings['outcomeResultsRating'] == 'Satisfied'] <- '4 Satisfied'
+data_ratings['outcomeResultsRating'][data_ratings['outcomeResultsRating'] == 'Neither unsatisfied nor satisfied'] <- '3 Neither'
+data_ratings['outcomeResultsRating'][data_ratings['outcomeResultsRating'] == 'Unsatisfied'] <- '2 Unsatisfied'
+data_ratings['outcomeResultsRating'][data_ratings['outcomeResultsRating'] == 'Very Unsatisfied'] <- '1 Very unsatisfied'
+data_ratings
+
+# plot graph
+ggplot(data_ratings, 
+       aes(x = receivedResults, 
+           y = total_count, 
+           fill = outcomeResultsRating)) +
+  geom_bar(stat = "identity", 
+           position = "stack") +
+  labs(fill = "Ratings",
+       x = "Received results",
+       y = "Total count") 
+
+```
+
+
+-------------------------------------------------------
+Comparing users vs. non-users on preparation approaches
+-------------------------------------------------------
+```{r}
+# users
+dataPrep_users <- data %>%
+  # filter users
+  filter(userType == "user") %>%
+  # select columns
+  select(ID,
+         planScheduleList, 
+         notes, 
+         practicedMockExams, 
+         practicedExercises, 
+         createdNewMaterial, 
+         createdFC, 
+         practicedFC, 
+         watchedEdVids) 
+
+# total up all columns
+dataPrep_users <- dataPrep_users %>%
+  untabyl() %>% 
+  adorn_totals("row") %>%
+  filter(ID == "Total")
+
+dataPrep_users <- dataPrep_users %>%
+  # gather into 2 columns
+  gather("preparation", "usersCount", 2:9) %>%
+  # remove ID column
+  select(preparation, usersCount)
+
+# non-users
+dataPrep_nonusers <- data %>%
+   # filter users
+  filter(userType == "nonuser") %>%
+  # select columns
+  select(ID,
+         planScheduleList, 
+         notes, 
+         practicedMockExams, 
+         practicedExercises, 
+         createdNewMaterial, 
+         createdFC, 
+         practicedFC, 
+         watchedEdVids) 
+
+# total up all columns
+dataPrep_nonusers <- dataPrep_nonusers %>%
+  untabyl() %>% 
+  adorn_totals("row") %>%
+  filter(ID == "Total")
+
+dataPrep_nonusers <- dataPrep_nonusers %>%
+# filter last row of totals
+  filter(ID == "Total") %>%
+  # gather into 2 columns
+  gather("preparation", "nonusersCount", 2:9) %>%
+  # remove ID column
+  select(preparation, nonusersCount)
+
+# join user and nonuser data sets
+data_prep <- left_join(dataPrep_users, dataPrep_nonusers, by = "preparation")
+
+# gather data for bar graph
+data_prep <- data_prep %>%
+  gather("userType", "total_count", 2:3)
+data_prep
+
+# rename values in columns
+data_prep['preparation'][data_prep['preparation'] == 'planScheduleList'] <- 'Used schedule or list'
+data_prep['preparation'][data_prep['preparation'] == 'notes'] <- 'Created notes'
+data_prep['preparation'][data_prep['preparation'] == 'practicedMockExams'] <- 'Practiced mock exams'
+data_prep['preparation'][data_prep['preparation'] == 'practicedExercises'] <- 'Practiced exercises'
+data_prep['preparation'][data_prep['preparation'] == 'createdNewMaterial'] <- 'Created new material'
+data_prep['preparation'][data_prep['preparation'] == 'createdFC'] <- 'Created FC'
+data_prep['preparation'][data_prep['preparation'] == 'practicedFC'] <- 'Practiced FC'
+data_prep['preparation'][data_prep['preparation'] == 'watchedEdVids'] <- 'Watched educational videos'
+
+data_prep['userType'][data_prep['userType'] == 'usersCount'] <- 'Users'
+data_prep['userType'][data_prep['userType'] == 'nonusersCount'] <- 'Non-users'
+data_prep
+
+# rename labels in graph - don't do
+#prep_x_labels <- c("Created FC",
+#                   "Created new material",                 
+#                   "Created notes", 
+#                   "Used schedule or list",
+#                   "Practiced exercises",
+#                   "Practiced FC", 
+#                   "Practiced mock exams", 
+#                   "Watched educational videos")
+#prep_fill_labels <- c("Non-users",
+#                      "Users")
+
+# plot graph - users vs. non-users
+ggplot(data_prep, 
+       aes(x = reorder(preparation, total_count), 
+           y = total_count, 
+           fill = userType)) +
+  geom_bar(stat = "identity", 
+           position = position_dodge()) +
+  # add fixed range to y-axis
+  ylim(0, 80) +
+  # change x-axis and y-axis titles
+  labs(fill = "Participants",
+       x = "Preparation",
+       y = "Total count") +
+  # change angle of labels on x-axis
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1)) #+
+#  scale_x_discrete(labels = prep_x_labels) +
+#  scale_fill_discrete(labels = prep_fill_labels)
+
+
+# plot graph - all together
+dataPrep_all <- data %>%
+  # select columns
+  select(ID,
+         planScheduleList, 
+         notes, 
+         practicedMockExams, 
+         practicedExercises, 
+         createdNewMaterial, 
+         createdFC, 
+         practicedFC, 
+         watchedEdVids) %>%
+  # filter last row of totals
+  filter(ID == "Total") %>%
+  # gather into 2 columns
+  gather("preparation", "total_count", 2:9) %>%
+  # remove ID column
+  select(preparation, total_count)
+
+dataPrep_all['preparation'][dataPrep_all['preparation'] == 'planScheduleList'] <- 'Used schedule or list'
+dataPrep_all['preparation'][dataPrep_all['preparation'] == 'notes'] <- 'Created notes'
+dataPrep_all['preparation'][dataPrep_all['preparation'] == 'practicedMockExams'] <- 'Practiced mock exams'
+dataPrep_all['preparation'][dataPrep_all['preparation'] == 'practicedExercises'] <- 'Practiced exercises'
+dataPrep_all['preparation'][dataPrep_all['preparation'] == 'createdNewMaterial'] <- 'Created new material'
+dataPrep_all['preparation'][dataPrep_all['preparation'] == 'createdFC'] <- 'Created FC'
+dataPrep_all['preparation'][dataPrep_all['preparation'] == 'practicedFC'] <- 'Practiced FC'
+dataPrep_all['preparation'][dataPrep_all['preparation'] == 'watchedEdVids'] <- 'Watched educational videos'
+
+ggplot(dataPrep_all, 
+       aes(x = reorder(preparation, total_count), 
+           y = total_count, 
+           fill = preparation)) +
+  geom_bar(stat = "identity") +
+  # add fixed range to y-axis
+  ylim(0, 150) +
+  # remove fill legend 
+  theme(legend.position = "none") +
+  # change angle of labels on x-axis
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1)) +
+  # change x-axis and y-axis titles
+  labs(x = "Preparation",
+       y = "Total count")
+
+```
+
+-----------------------------------------------------------------
+Comparing students satisfaction ratings on preparation approaches
+-----------------------------------------------------------------
+Note: due to the low sample sizes we did a separate analysis for those who had received their results
+vs. combined received and not received
+```{r}
+# choose which group
+# ------------------
+# received results
+data_resultsReceived <- data %>%
+  filter(receivedResults == "yes")
+data1 <- data_resultsReceived
+
+# all results
+#data1 <- data
+
+# very satisfied
+# --------------
+dataPrep_verySatisfied <- data1 %>%
+  # select columns
+  select(outcomeResultsRating,
+         planScheduleList, 
+         notes, 
+         practicedMockExams, 
+         practicedExercises, 
+         createdNewMaterial, 
+         createdFC, 
+         practicedFC, 
+         watchedEdVids) %>%
+  # filter rating rows
+  filter(outcomeResultsRating == "Very Satisfied") 
+
+# total up all columns
+dataPrep_verySatisfied <- dataPrep_verySatisfied %>%
+  # See: https://stackoverflow.com/questions/73307277/how-to-solve-error-when-using-adorn-totals-function-in-r
+  untabyl() %>% 
+  adorn_totals("row") %>%
+  filter(outcomeResultsRating == "Total")
+
+# change value "Total" to "Very satisfied" 
+dataPrep_verySatisfied['outcomeResultsRating'][dataPrep_verySatisfied['outcomeResultsRating'] == 'Total'] <- 'Very Satisfied'
+
+dataPrep_verySatisfied <- dataPrep_verySatisfied %>%
+  # gather into 2 columns
+  gather("preparation", "verySatisfiedCount", 2:9) %>%
+  # remove outcome column
+  select(preparation, verySatisfiedCount)
+dataPrep_verySatisfied
+
+# satisfied
+# ---------
+dataPrep_satisfied <- data1 %>%
+  # select columns
+  select(outcomeResultsRating,
+         planScheduleList, 
+         notes, 
+         practicedMockExams, 
+         practicedExercises, 
+         createdNewMaterial, 
+         createdFC, 
+         practicedFC, 
+         watchedEdVids) %>%
+  # filter rating rows
+  filter(outcomeResultsRating == "Satisfied") 
+
+# total up all columns
+dataPrep_satisfied <- dataPrep_satisfied %>%
+  untabyl() %>% 
+  adorn_totals("row") %>%
+  filter(outcomeResultsRating == "Total")
+
+# change value "Total" to "Very satisfied" 
+dataPrep_satisfied['outcomeResultsRating'][dataPrep_satisfied['outcomeResultsRating'] == 'Total'] <- 'Satisfied'
+
+dataPrep_satisfied <- dataPrep_satisfied %>%
+  # gather into 2 columns
+  gather("preparation", "satisfiedCount", 2:9) %>%
+  # remove outcome column
+  select(preparation, satisfiedCount)
+dataPrep_satisfied
+
+# neither
+# -------
+dataPrep_neither <- data1 %>%
+  # select columns
+  select(outcomeResultsRating,
+         planScheduleList, 
+         notes, 
+         practicedMockExams, 
+         practicedExercises, 
+         createdNewMaterial, 
+         createdFC, 
+         practicedFC, 
+         watchedEdVids) %>%
+  # filter rating rows
+  filter(outcomeResultsRating == "Neither unsatisfied nor satisfied") 
+
+# total up all columns
+dataPrep_neither <- dataPrep_neither %>%
+  untabyl() %>% 
+  adorn_totals("row") %>%
+  filter(outcomeResultsRating == "Total")
+
+# change value "Total" to "Very satisfied" 
+dataPrep_neither['outcomeResultsRating'][dataPrep_neither['outcomeResultsRating'] == 'Total'] <- 'Neither unsatisfied nor satisfied'
+
+dataPrep_neither <- dataPrep_neither %>%
+  # gather into 2 columns
+  gather("preparation", "neitherCount", 2:9) %>%
+  # remove outcome column
+  select(preparation, neitherCount)
+dataPrep_neither
+
+# unsatisfied
+# -----------
+dataPrep_unsatisfied <- data1 %>%
+  # select columns
+  select(outcomeResultsRating,
+         planScheduleList, 
+         notes, 
+         practicedMockExams, 
+         practicedExercises, 
+         createdNewMaterial, 
+         createdFC, 
+         practicedFC, 
+         watchedEdVids) %>%
+  # filter rating rows
+  filter(outcomeResultsRating == "Unsatisfied") 
+
+# total up all columns
+dataPrep_unsatisfied <- dataPrep_unsatisfied %>%
+  untabyl() %>% 
+  adorn_totals("row") %>%
+  filter(outcomeResultsRating == "Total")
+
+# change value "Total" to "Very satisfied" 
+dataPrep_unsatisfied['outcomeResultsRating'][dataPrep_unsatisfied['outcomeResultsRating'] == 'Total'] <- 'Unsatisfied'
+
+dataPrep_unsatisfied <- dataPrep_unsatisfied %>%
+  # gather into 2 columns
+  gather("preparation", "unsatisfiedCount", 2:9) %>%
+  # remove outcome column
+  select(preparation, unsatisfiedCount)
+dataPrep_unsatisfied
+
+# very unsatisfied
+# ----------------
+dataPrep_veryUnsatisfied <- data1 %>%
+  # select columns
+  select(outcomeResultsRating,
+         planScheduleList, 
+         notes, 
+         practicedMockExams, 
+         practicedExercises, 
+         createdNewMaterial, 
+         createdFC, 
+         practicedFC, 
+         watchedEdVids) %>%
+  # filter rating rows
+  filter(outcomeResultsRating == "Very unsatisfied") 
+
+# total up all columns
+dataPrep_veryUnsatisfied <- dataPrep_veryUnsatisfied %>%
+  untabyl() %>% 
+  adorn_totals("row") %>%
+  filter(outcomeResultsRating == "Total")
+
+# change value "Total" to "Very satisfied" 
+dataPrep_veryUnsatisfied['outcomeResultsRating'][dataPrep_veryUnsatisfied['outcomeResultsRating'] == 'Total'] <- 'Very unsatisfied'
+
+dataPrep_veryUnsatisfied <- dataPrep_veryUnsatisfied %>%
+  # gather into 2 columns
+  gather("preparation", "veryUnsatisfiedCount", 2:9) %>%
+  # remove outcome column
+  select(preparation, veryUnsatisfiedCount)
+dataPrep_veryUnsatisfied
+
+# unsure
+# ------
+dataPrep_unsure <- data1 %>%
+  # select columns
+  select(outcomeResultsRating,
+         planScheduleList, 
+         notes, 
+         practicedMockExams, 
+         practicedExercises, 
+         createdNewMaterial, 
+         createdFC, 
+         practicedFC, 
+         watchedEdVids) %>%
+  # filter rating rows
+  filter(outcomeResultsRating == "Unsure") 
+
+# total up all columns
+dataPrep_unsure <- dataPrep_unsure %>%
+  untabyl() %>% 
+  adorn_totals("row") %>%
+  filter(outcomeResultsRating == "Total")
+
+# change value "Total" to "Very satisfied" 
+dataPrep_unsure['outcomeResultsRating'][dataPrep_unsure['outcomeResultsRating'] == 'Total'] <- 'Unsure'
+
+dataPrep_unsure <- dataPrep_unsure %>%
+  # gather into 2 columns
+  gather("preparation", "unsureCount", 2:9) %>%
+  # remove outcome column
+  select(preparation, unsureCount)
+dataPrep_unsure
+
+# plot graph of all dfs
+# ---------------------
+# join all dfs
+dataPrep_ratings <- left_join(dataPrep_verySatisfied, dataPrep_satisfied, by = "preparation")
+dataPrep_ratings <- left_join(dataPrep_ratings, dataPrep_neither, by = "preparation")
+dataPrep_ratings <- left_join(dataPrep_ratings, dataPrep_unsatisfied, by = "preparation")
+dataPrep_ratings <- left_join(dataPrep_ratings, dataPrep_veryUnsatisfied, by = "preparation")
+dataPrep_ratings <- left_join(dataPrep_ratings, dataPrep_unsure, by = "preparation")
+dataPrep_ratings
+
+# gather df for graph
+dataPrep_ratings <- dataPrep_ratings %>%
+  # gather into 2 columns
+  gather("ratings", "total_count", 2:7)
+
+# rename values in columns
+dataPrep_ratings['preparation'][dataPrep_ratings['preparation'] == 'planScheduleList'] <- 'Used schedule or list'
+dataPrep_ratings['preparation'][dataPrep_ratings['preparation'] == 'notes'] <- 'Created notes'
+dataPrep_ratings['preparation'][dataPrep_ratings['preparation'] == 'practicedMockExams'] <- 'Practiced mock exams'
+dataPrep_ratings['preparation'][dataPrep_ratings['preparation'] == 'practicedExercises'] <- 'Practiced exercises'
+dataPrep_ratings['preparation'][dataPrep_ratings['preparation'] == 'createdNewMaterial'] <- 'Created new material'
+dataPrep_ratings['preparation'][dataPrep_ratings['preparation'] == 'createdFC'] <- 'Created FC'
+dataPrep_ratings['preparation'][dataPrep_ratings['preparation'] == 'practicedFC'] <- 'Practiced FC'
+dataPrep_ratings['preparation'][dataPrep_ratings['preparation'] == 'watchedEdVids'] <- 'Watched educational videos'
+
+dataPrep_ratings['ratings'][dataPrep_ratings['ratings'] == 'verySatisfiedCount'] <- '5 Very satisfied'
+dataPrep_ratings['ratings'][dataPrep_ratings['ratings'] == 'satisfiedCount'] <- '4 Satisfied'
+dataPrep_ratings['ratings'][dataPrep_ratings['ratings'] == 'neitherCount'] <- '3 Neither'
+dataPrep_ratings['ratings'][dataPrep_ratings['ratings'] == 'unsatisfiedCount'] <- '2 Unsatisfied'
+dataPrep_ratings['ratings'][dataPrep_ratings['ratings'] == 'veryUnsatisfiedCount'] <- '1 Very unsatisfied'
+dataPrep_ratings['ratings'][dataPrep_ratings['ratings'] == 'unsureCount'] <- 'Unsure'
+dataPrep_ratings
+
+# plot graph
+ggplot(dataPrep_ratings, 
+       aes(x = reorder(preparation, total_count), 
+           y = total_count, 
+           fill = ratings)) +
+  geom_bar(stat = "identity", 
+           position = "stack") +
+  # change x-axis and y-axis titles
+  labs(fill = "Ratings",
+       x = "Preparation",
+       y = "Total count") +
+  # change angle of labels on x-axis
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1)) 
+
+```
+
+--------------------------------------------------------------
+Comparing schedule prep approaches between users and non-users
+--------------------------------------------------------------
+Schedule - how?
+---------------
+```{r}
+# users
+dataSchedule_users <- data %>%
+  # filter user type
+  filter(userType == "user") %>%
+  # select columns
+  select(ID,
+         scheduleCombinedModules, 
+         scheduleTopicsOnDifDays, 
+         schedulePrioTopics,
+         scheduleInclSpecTasks,
+         scheduleInclStudyGroupSessions,
+         scheduleInclDeadlines,
+         scheduleBufferTime,
+         scheduleOtherActivitiesTime,
+         scheduleGatherAndOrgMaterials,
+         scheduleMaterialCreationSessions,
+         scheduleRevisingAndTestingSessions,
+         scheduleMockExamSessions) 
+  
+# total up all columns
+dataSchedule_users <- dataSchedule_users %>%
+  untabyl() %>% 
+  adorn_totals("row") %>%
+  filter(ID == "Total")
+
+dataSchedule_users <- dataSchedule_users %>%
+  # gather into 2 columns
+  gather("schedulePrep", "usersCount", 2:13) %>%
+  # remove ID column
+  select(schedulePrep, usersCount)
+  
+
+# non-users
+dataSchedule_nonusers <- data %>%
+  # filter user type
+  filter(userType == "nonuser") %>%
+  # select columns
+  select(ID,
+         scheduleCombinedModules, 
+         scheduleTopicsOnDifDays, 
+         schedulePrioTopics,
+         scheduleInclSpecTasks,
+         scheduleInclStudyGroupSessions,
+         scheduleInclDeadlines,
+         scheduleBufferTime,
+         scheduleOtherActivitiesTime,
+         scheduleGatherAndOrgMaterials,
+         scheduleMaterialCreationSessions,
+         scheduleRevisingAndTestingSessions,
+         scheduleMockExamSessions)
+
+# total up all columns
+dataSchedule_nonusers <- dataSchedule_nonusers %>%
+  untabyl() %>% 
+  adorn_totals("row") %>%
+  filter(ID == "Total")
+
+dataSchedule_nonusers <- dataSchedule_nonusers %>%
+  # gather into 2 columns
+  gather("schedulePrep", "nonusersCount", 2:13) %>%
+  # remove ID column
+  select(schedulePrep, nonusersCount)
+
+
+# join user and nonuser data sets
+dataSchedule_prep <- left_join(dataSchedule_users, dataSchedule_nonusers, by = "schedulePrep")
+dataSchedule_prep
+
+# gather data for bar graph
+dataSchedule_prep <- dataSchedule_prep %>%
+  gather("userType", "total_count", 2:3)
+dataSchedule_prep
+
+# rename values in columns
+dataSchedule_prep['schedulePrep'][dataSchedule_prep['schedulePrep'] == 'scheduleCombinedModules'] <- 'Combine modules'
+dataSchedule_prep['schedulePrep'][dataSchedule_prep['schedulePrep'] == 'scheduleTopicsOnDifDays'] <- 'Schedule topics on dif. days'
+dataSchedule_prep['schedulePrep'][dataSchedule_prep['schedulePrep'] == 'schedulePrioTopics'] <- 'Prioritise topics'
+dataSchedule_prep['schedulePrep'][dataSchedule_prep['schedulePrep'] == 'scheduleInclSpecTasks'] <- 'Incl. specific tasks'
+dataSchedule_prep['schedulePrep'][dataSchedule_prep['schedulePrep'] == 'scheduleInclStudyGroupSessions'] <- 'Incl. study group sessions'
+dataSchedule_prep['schedulePrep'][dataSchedule_prep['schedulePrep'] == 'scheduleInclDeadlines'] <- 'Incl. deadlines'
+dataSchedule_prep['schedulePrep'][dataSchedule_prep['schedulePrep'] == 'scheduleBufferTime'] <- 'Incl. buffer time'
+dataSchedule_prep['schedulePrep'][dataSchedule_prep['schedulePrep'] == 'scheduleOtherActivitiesTime'] <- 'Schedule other activities'
+dataSchedule_prep['schedulePrep'][dataSchedule_prep['schedulePrep'] == 'scheduleGatherAndOrgMaterials'] <- 'Gather & organise materials'
+dataSchedule_prep['schedulePrep'][dataSchedule_prep['schedulePrep'] == 'scheduleMaterialCreationSessions'] <- 'Schedule material creation sessions'
+dataSchedule_prep['schedulePrep'][dataSchedule_prep['schedulePrep'] == 'scheduleRevisingAndTestingSessions'] <- 'Schedule revision & testing'
+dataSchedule_prep['schedulePrep'][dataSchedule_prep['schedulePrep'] == 'scheduleMockExamSessions'] <- 'Schedule mock exams'
+dataSchedule_prep['userType'][dataSchedule_prep['userType'] == 'usersCount'] <- 'Users'
+dataSchedule_prep['userType'][dataSchedule_prep['userType'] == 'nonusersCount'] <- 'Non-users'
+dataSchedule_prep
+
+# plot graph
+ggplot(dataSchedule_prep, 
+       aes(x = reorder(schedulePrep, total_count), 
+           y = total_count, 
+           fill = userType)) +
+  geom_bar(stat = "identity", 
+           position = position_dodge()) +
+  # add fixed range to y-axis
+  ylim(0, 20) +
+  # change x-axis and y-axis titles
+  labs(fill = "Participants",
+       x = "Used schedule to...",
+       y = "Total count") +
+  # change angle of labels on x-axis
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1)) 
+
+
+# plot graph - all together
+dataSchedule_prepAll <- data %>%
+  # select columns
+  select(ID,
+         scheduleCombinedModules, 
+         scheduleTopicsOnDifDays, 
+         schedulePrioTopics,
+         scheduleInclSpecTasks,
+         scheduleInclStudyGroupSessions,
+         scheduleInclDeadlines,
+         scheduleBufferTime,
+         scheduleOtherActivitiesTime,
+         scheduleGatherAndOrgMaterials,
+         scheduleMaterialCreationSessions,
+         scheduleRevisingAndTestingSessions,
+         scheduleMockExamSessions) %>%
+  # filter last row of totals
+  filter(ID == "Total") %>%
+  # gather into 2 columns
+  gather("schedulePrep", "total_count", 2:13) %>%
+  # remove ID column
+  select(schedulePrep, total_count)
+
+# rename values in columns
+dataSchedule_prepAll['schedulePrep'][dataSchedule_prepAll['schedulePrep'] == 'scheduleCombinedModules'] <- 'Combine modules'
+dataSchedule_prepAll['schedulePrep'][dataSchedule_prepAll['schedulePrep'] == 'scheduleTopicsOnDifDays'] <- 'Schedule topics on dif. days'
+dataSchedule_prepAll['schedulePrep'][dataSchedule_prepAll['schedulePrep'] == 'schedulePrioTopics'] <- 'Prioritise topics'
+dataSchedule_prepAll['schedulePrep'][dataSchedule_prepAll['schedulePrep'] == 'scheduleInclSpecTasks'] <- 'Incl. specific tasks'
+dataSchedule_prepAll['schedulePrep'][dataSchedule_prepAll['schedulePrep'] == 'scheduleInclStudyGroupSessions'] <- 'Incl. study group sessions'
+dataSchedule_prepAll['schedulePrep'][dataSchedule_prepAll['schedulePrep'] == 'scheduleInclDeadlines'] <- 'Incl. deadlines'
+dataSchedule_prepAll['schedulePrep'][dataSchedule_prepAll['schedulePrep'] == 'scheduleBufferTime'] <- 'Incl. buffer time'
+dataSchedule_prepAll['schedulePrep'][dataSchedule_prepAll['schedulePrep'] == 'scheduleOtherActivitiesTime'] <- 'Schedule other activities'
+dataSchedule_prepAll['schedulePrep'][dataSchedule_prepAll['schedulePrep'] == 'scheduleGatherAndOrgMaterials'] <- 'Gather & organise materials'
+dataSchedule_prepAll['schedulePrep'][dataSchedule_prepAll['schedulePrep'] == 'scheduleMaterialCreationSessions'] <- 'Schedule material creation sessions'
+dataSchedule_prepAll['schedulePrep'][dataSchedule_prepAll['schedulePrep'] == 'scheduleRevisingAndTestingSessions'] <- 'Schedule revision & testing'
+dataSchedule_prepAll['schedulePrep'][dataSchedule_prepAll['schedulePrep'] == 'scheduleMockExamSessions'] <- 'Schedule mock exams'
+
+# plot
+ggplot(dataSchedule_prepAll, 
+       aes(x = reorder(schedulePrep, total_count), 
+           y = total_count, 
+           fill = schedulePrep)) +
+  geom_bar(stat = "identity") +
+  # add fixed range to y-axis
+  ylim(0, 30) +
+  # remove fill legend 
+  theme(legend.position = "none") +
+  # change angle of labels on x-axis
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1)) +
+  # change x-axis and y-axis titles
+  labs(x = "Used schedule to...",
+       y = "Total count")
+
+```
+Schedule - when?
+----------------
+```{r}
+# users
+dataScheduleWhen_users <- data %>%
+  # filter data
+  filter(userType == "user") %>%
+  # select columns
+  select(ID,
+         scheduleThroughOutSemester,
+         scheduleExamPhase,
+         scheduleEverySession,
+         scheduleDayToDay,
+         scheduleEveryWeek,
+         scheduleEveryMonth) 
+
+# total up all columns
+dataScheduleWhen_users <- dataScheduleWhen_users %>%
+  untabyl() %>% 
+  adorn_totals("row") %>%
+  filter(ID == "Total")
+
+dataScheduleWhen_users <- dataScheduleWhen_users %>%
+  # gather into 2 columns
+  gather("scheduleWhenPrep", "usersCount", 2:7) %>%
+  # remove ID column
+  select(scheduleWhenPrep, usersCount)
+
+  
+# non-users
+dataScheduleWhen_nonusers <- data %>%
+  # filter data
+  filter(userType == "nonuser") %>%
+  # select columns
+  select(ID,
+         scheduleThroughOutSemester,
+         scheduleExamPhase,
+         scheduleEverySession,
+         scheduleDayToDay,
+         scheduleEveryWeek,
+         scheduleEveryMonth) 
+
+# total up all columns
+dataScheduleWhen_nonusers <- dataScheduleWhen_nonusers %>%
+  untabyl() %>% 
+  adorn_totals("row") %>%
+  filter(ID == "Total")
+
+dataScheduleWhen_nonusers <- dataScheduleWhen_nonusers %>%
+  # gather into 2 columns
+  gather("scheduleWhenPrep", "nonusersCount", 2:7) %>%
+  # remove ID column
+  select(scheduleWhenPrep, nonusersCount)
+
+
+# join user and nonuser data sets
+dataScheduleWhen_prep <- left_join(dataScheduleWhen_users, dataScheduleWhen_nonusers, by = "scheduleWhenPrep")
+
+# gather data for bar graph
+dataScheduleWhen_prep <- dataScheduleWhen_prep %>%
+  gather("userType", "total_count", 2:3)
+dataScheduleWhen_prep
+
+# rename values in columns
+dataScheduleWhen_prep['scheduleWhenPrep'][dataScheduleWhen_prep['scheduleWhenPrep'] == 'scheduleThroughOutSemester'] <- 'Throughout semester'
+dataScheduleWhen_prep['scheduleWhenPrep'][dataScheduleWhen_prep['scheduleWhenPrep'] == 'scheduleExamPhase'] <- 'Exam phase'
+dataScheduleWhen_prep['scheduleWhenPrep'][dataScheduleWhen_prep['scheduleWhenPrep'] == 'scheduleEverySession'] <- 'Every revision session'
+dataScheduleWhen_prep['scheduleWhenPrep'][dataScheduleWhen_prep['scheduleWhenPrep'] == 'scheduleDayToDay'] <- 'Day to day'
+dataScheduleWhen_prep['scheduleWhenPrep'][dataScheduleWhen_prep['scheduleWhenPrep'] == 'scheduleEveryWeek'] <- 'Every week'
+dataScheduleWhen_prep['scheduleWhenPrep'][dataScheduleWhen_prep['scheduleWhenPrep'] == 'scheduleEveryMonth'] <- 'Every month'
+dataScheduleWhen_prep['userType'][dataScheduleWhen_prep['userType'] == 'usersCount'] <- 'Users'
+dataScheduleWhen_prep['userType'][dataScheduleWhen_prep['userType'] == 'nonusersCount'] <- 'Non-users'
+dataScheduleWhen_prep
+
+# plot graph
+ggplot(dataScheduleWhen_prep, 
+       aes(x = reorder(scheduleWhenPrep, total_count),
+           y = total_count, 
+           fill = userType)) +
+  geom_bar(stat = "identity", 
+           position = position_dodge()) +
+  # add fixed range to y-axis
+  ylim(0, 20) +
+  # change x-axis and y-axis titles
+  labs(fill = "Participants",
+       x = "When schedule was used & updated",
+       y = "Total count") +
+  # change angle of labels on x-axis
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1)) 
+
+
+# plot graph - all together
+dataScheduleWhen_prepAll <- data %>%
+  # select columns
+  select(ID,
+         scheduleThroughOutSemester,
+         scheduleExamPhase,
+         scheduleEverySession,
+         scheduleDayToDay,
+         scheduleEveryWeek,
+         scheduleEveryMonth) %>%
+  # filter last row of totals
+  filter(ID == "Total") %>%
+  # gather into 2 columns
+  gather("scheduleWhenPrep", "total_count", 2:7) %>%
+  # remove ID column
+  select(scheduleWhenPrep, total_count)
+
+# rename values in columns
+dataScheduleWhen_prepAll['scheduleWhenPrep'][dataScheduleWhen_prepAll['scheduleWhenPrep'] == 'scheduleThroughOutSemester'] <- 'Throughout semester'
+dataScheduleWhen_prepAll['scheduleWhenPrep'][dataScheduleWhen_prepAll['scheduleWhenPrep'] == 'scheduleExamPhase'] <- 'Exam phase'
+dataScheduleWhen_prepAll['scheduleWhenPrep'][dataScheduleWhen_prepAll['scheduleWhenPrep'] == 'scheduleEverySession'] <- 'Every revision session'
+dataScheduleWhen_prepAll['scheduleWhenPrep'][dataScheduleWhen_prepAll['scheduleWhenPrep'] == 'scheduleDayToDay'] <- 'Day to day'
+dataScheduleWhen_prepAll['scheduleWhenPrep'][dataScheduleWhen_prepAll['scheduleWhenPrep'] == 'scheduleEveryWeek'] <- 'Every week'
+dataScheduleWhen_prepAll['scheduleWhenPrep'][dataScheduleWhen_prepAll['scheduleWhenPrep'] == 'scheduleEveryMonth'] <- 'Every month'
+
+# plot
+ggplot(dataScheduleWhen_prepAll, 
+       aes(x = reorder(scheduleWhenPrep, total_count), 
+           y = total_count, 
+           fill = scheduleWhenPrep)) +
+  geom_bar(stat = "identity") +
+  # add fixed range to y-axis
+  ylim(0, 30) +
+  # remove fill legend 
+  theme(legend.position = "none") +
+  # change angle of labels on x-axis
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1)) +
+  # change x-axis and y-axis titles
+  labs(x = "When schedule was used & updated",
+       y = "Total count")
+
+
+```
+
+Schedule - idea
+---------------
+```{r}
+# users
+dataScheduleIdea_users <- data %>%
+  # filter user type 
+  filter(userType == "user") %>%
+  # select columns
+  select(ID,
+         scheduleFriend, 
+         scheduleUpperclassman,
+         scheduleTeacher,
+         scheduleUniForum,
+         scheduleInternet,
+         scheduleOnlineForum, 
+         schedulePrevExam) 
+
+# total up all columns
+dataScheduleIdea_users <- dataScheduleIdea_users %>%
+  untabyl() %>% 
+  adorn_totals("row") %>%
+  filter(ID == "Total")
+
+dataScheduleIdea_users <- dataScheduleIdea_users %>%
+  # gather into 2 columns
+  gather("scheduleIdeaPrep", "usersCount", 2:8) %>%
+  # remove ID column
+  select(scheduleIdeaPrep, usersCount)
+
+  
+# non-users
+dataScheduleIdea_nonusers <- data %>%
+  # filter user type
+  filter(userType == "nonuser") %>%
+  # select columns
+  select(ID,
+         scheduleFriend, 
+         scheduleUpperclassman,
+         scheduleTeacher,
+         scheduleUniForum,
+         scheduleInternet,
+         scheduleOnlineForum, 
+         schedulePrevExam) 
+
+# total up all columns
+dataScheduleIdea_nonusers <- dataScheduleIdea_nonusers %>%
+  untabyl() %>% 
+  adorn_totals("row") %>%
+  filter(ID == "Total")
+
+dataScheduleIdea_nonusers <- dataScheduleIdea_nonusers %>%
+  # gather into 2 columns
+  gather("scheduleIdeaPrep", "nonusersCount", 2:8) %>%
+  # remove ID column
+  select(scheduleIdeaPrep, nonusersCount)
+
+
+# join user and nonuser data sets
+dataScheduleIdea_prep <- left_join(dataScheduleIdea_users, dataScheduleIdea_nonusers, by = "scheduleIdeaPrep")
+
+# gather data for bar graph
+dataScheduleIdea_prep <- dataScheduleIdea_prep %>%
+  gather("userType", "total_count", 2:3)
+dataScheduleIdea_prep
+
+# rename values in columns
+dataScheduleIdea_prep$scheduleIdeaPrep[dataScheduleIdea_prep$scheduleIdeaPrep %in% c(
+  'scheduleFriend',
+  'scheduleUpperclassman',
+  'scheduleTeacher',
+  'scheduleUniForum',
+  'scheduleInternet',
+  'scheduleOnlineForum',
+  'schedulePrevExam')] <- c(
+    'Friend, classmate or family member',
+    'Upperclassmen',
+    'Teacher or associate at uni',
+    'Uni forum',
+    'Internet',
+    'Other online forum',
+    'Previous exam(s)')
+
+dataScheduleIdea_prep$userType[dataScheduleIdea_prep$userType %in% c(
+  'usersCount',
+  'nonusersCount')] <- c(
+    'Users',
+    'Non-users')
+
+# plot graph
+ggplot(dataScheduleIdea_prep, 
+       aes(x = reorder(scheduleIdeaPrep, total_count),
+           y = total_count, 
+           fill = userType)) +
+  geom_bar(stat = "identity", 
+           position = position_dodge()) +
+  # add fixed range to y-axis
+  ylim(0, 20) +
+  # change x-axis and y-axis titles
+  labs(fill = "Participants",
+       x = "Where idea to use schedule came from",
+       y = "Total count") +
+  # change angle of labels on x-axis
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1)) 
+
+
+# plot graph - all together
+dataScheduleIdea_prepAll <- data %>%
+  # select columns
+  select(ID,
+         scheduleFriend, 
+         scheduleUpperclassman,
+         scheduleTeacher,
+         scheduleUniForum,
+         scheduleInternet,
+         scheduleOnlineForum, 
+         schedulePrevExam) %>%
+  # filter last row of totals
+  filter(ID == "Total") %>%
+  # gather into 2 columns
+  gather("scheduleIdeaPrep", "total_count", 2:8) %>%
+  # remove ID column
+  select(scheduleIdeaPrep, total_count)
+
+# rename values in columns
+dataScheduleIdea_prepAll$scheduleIdeaPrep[dataScheduleIdea_prepAll$scheduleIdeaPrep %in% c(
+  'scheduleFriend',
+  'scheduleUpperclassman',
+  'scheduleTeacher',
+  'scheduleUniForum',
+  'scheduleInternet',
+  'scheduleOnlineForum',
+  'schedulePrevExam')] <- c(
+    'Friend, classmate or family member',
+    'Upperclassmen',
+    'Teacher or associate at uni',
+    'Uni forum',
+    'Internet',
+    'Other online forum',
+    'Previous exam(s)')
+
+# plot
+ggplot(dataScheduleIdea_prepAll, 
+       aes(x = reorder(scheduleIdeaPrep, total_count), 
+           y = total_count, 
+           fill = scheduleIdeaPrep)) +
+  geom_bar(stat = "identity") +
+  # add fixed range to y-axis
+  ylim(0, 30) +
+  # remove fill legend 
+  theme(legend.position = "none") +
+  # change angle of labels on x-axis
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1)) +
+  # change x-axis and y-axis titles
+  labs(x = "Where idea to use schedule came from",
+       y = "Total count")
+
+```
+
+--------------------------------------------------------------
+Comparing list prep approaches between users and non-users
+--------------------------------------------------------------
+List - how?
+---------------
+```{r}
+# users
+dataList_users <- data %>%
+  # filter user type
+  filter(userType == "user") %>%
+  # select columns
+  select(ID,
+         listCombinedModules, 
+         listTopicsOnDifDays, 
+         listPrioTopics,
+         listInclSpecTasks,
+         listInclStudyGroupSessions,
+         listInclDeadlines,
+         listBufferTime,
+         listOtherActivitiesTime,
+         listGatherAndOrgMaterials,
+         listMaterialCreationSessions,
+         listRevisingAndTestingSessions,
+         listMockExamSessions) 
+  
+# total up all columns
+dataList_users <- dataList_users %>%
+  untabyl() %>% 
+  adorn_totals("row") %>%
+  filter(ID == "Total")
+
+dataList_users <- dataList_users %>%
+  # gather into 2 columns
+  gather("listPrep", "usersCount", 2:13) %>%
+  # remove ID column
+  select(listPrep, usersCount)
+  
+
+# non-users
+dataList_nonusers <- data %>%
+  # filter user type
+  filter(userType == "nonuser") %>%
+  # select columns
+  select(ID,
+         listCombinedModules, 
+         listTopicsOnDifDays, 
+         listPrioTopics,
+         listInclSpecTasks,
+         listInclStudyGroupSessions,
+         listInclDeadlines,
+         listBufferTime,
+         listOtherActivitiesTime,
+         listGatherAndOrgMaterials,
+         listMaterialCreationSessions,
+         listRevisingAndTestingSessions,
+         listMockExamSessions)
+
+# total up all columns
+dataList_nonusers <- dataList_nonusers %>%
+  untabyl() %>% 
+  adorn_totals("row") %>%
+  filter(ID == "Total")
+
+dataList_nonusers <- dataList_nonusers %>%
+  # gather into 2 columns
+  gather("listPrep", "nonusersCount", 2:13) %>%
+  # remove ID column
+  select(listPrep, nonusersCount)
+
+
+# join user and nonuser data sets
+dataList_prep <- left_join(dataList_users, dataList_nonusers, by = "listPrep")
+dataList_prep
+
+# gather data for bar graph
+dataList_prep <- dataList_prep %>%
+  gather("userType", "total_count", 2:3)
+dataList_prep
+
+# rename values in columns
+dataList_prep['listPrep'][dataList_prep['listPrep'] == 'listCombinedModules'] <- 'Combine modules'
+dataList_prep['listPrep'][dataList_prep['listPrep'] == 'listTopicsOnDifDays'] <- 'List topics on dif. days'
+dataList_prep['listPrep'][dataList_prep['listPrep'] == 'listPrioTopics'] <- 'Prioritise topics'
+dataList_prep['listPrep'][dataList_prep['listPrep'] == 'listInclSpecTasks'] <- 'Incl. specific tasks'
+dataList_prep['listPrep'][dataList_prep['listPrep'] == 'listInclStudyGroupSessions'] <- 'Incl. study group sessions'
+dataList_prep['listPrep'][dataList_prep['listPrep'] == 'listInclDeadlines'] <- 'Incl. deadlines'
+dataList_prep['listPrep'][dataList_prep['listPrep'] == 'listBufferTime'] <- 'Incl. buffer time'
+dataList_prep['listPrep'][dataList_prep['listPrep'] == 'listOtherActivitiesTime'] <- 'List other activities'
+dataList_prep['listPrep'][dataList_prep['listPrep'] == 'listGatherAndOrgMaterials'] <- 'Gather & organise materials'
+dataList_prep['listPrep'][dataList_prep['listPrep'] == 'listMaterialCreationSessions'] <- 'List material creation sessions'
+dataList_prep['listPrep'][dataList_prep['listPrep'] == 'listRevisingAndTestingSessions'] <- 'List revision & testing'
+dataList_prep['listPrep'][dataList_prep['listPrep'] == 'listMockExamSessions'] <- 'List mock exams'
+
+dataList_prep['userType'][dataList_prep['userType'] == 'usersCount'] <- 'Users'
+dataList_prep['userType'][dataList_prep['userType'] == 'nonusersCount'] <- 'Non-users'
+dataList_prep
+
+# plot graph
+ggplot(dataList_prep, 
+       aes(x = reorder(listPrep, total_count), 
+           y = total_count, 
+           fill = userType)) +
+  geom_bar(stat = "identity", 
+           position = position_dodge()) +
+  # add fixed range to y-axis
+  ylim(0, 30) +
+  # change x-axis and y-axis titles
+  labs(fill = "Participants",
+       x = "Used to-do list to...",
+       y = "Total count") +
+  # change angle of labels on x-axis
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1)) 
+
+
+# plot graph - all together
+dataList_prepAll <- data %>%
+  # select columns
+  select(ID,
+         listCombinedModules, 
+         listTopicsOnDifDays, 
+         listPrioTopics,
+         listInclSpecTasks,
+         listInclStudyGroupSessions,
+         listInclDeadlines,
+         listBufferTime,
+         listOtherActivitiesTime,
+         listGatherAndOrgMaterials,
+         listMaterialCreationSessions,
+         listRevisingAndTestingSessions,
+         listMockExamSessions) %>%
+  # filter last row of totals
+  filter(ID == "Total") %>%
+  # gather into 2 columns
+  gather("listPrep", "total_count", 2:13) %>%
+  # remove ID column
+  select(listPrep, total_count)
+
+# rename values in columns
+dataList_prepAll['listPrep'][dataList_prepAll['listPrep'] == 'listCombinedModules'] <- 'Combine modules'
+dataList_prepAll['listPrep'][dataList_prepAll['listPrep'] == 'listTopicsOnDifDays'] <- 'List topics on dif. days'
+dataList_prepAll['listPrep'][dataList_prepAll['listPrep'] == 'listPrioTopics'] <- 'Prioritise topics'
+dataList_prepAll['listPrep'][dataList_prepAll['listPrep'] == 'listInclSpecTasks'] <- 'Incl. specific tasks'
+dataList_prepAll['listPrep'][dataList_prepAll['listPrep'] == 'listInclStudyGroupSessions'] <- 'Incl. study group sessions'
+dataList_prepAll['listPrep'][dataList_prepAll['listPrep'] == 'listInclDeadlines'] <- 'Incl. deadlines'
+dataList_prepAll['listPrep'][dataList_prepAll['listPrep'] == 'listBufferTime'] <- 'Incl. buffer time'
+dataList_prepAll['listPrep'][dataList_prepAll['listPrep'] == 'listOtherActivitiesTime'] <- 'List other activities'
+dataList_prepAll['listPrep'][dataList_prepAll['listPrep'] == 'listGatherAndOrgMaterials'] <- 'Gather & organise materials'
+dataList_prepAll['listPrep'][dataList_prepAll['listPrep'] == 'listMaterialCreationSessions'] <- 'List material creation sessions'
+dataList_prepAll['listPrep'][dataList_prepAll['listPrep'] == 'listRevisingAndTestingSessions'] <- 'List revision & testing'
+dataList_prepAll['listPrep'][dataList_prepAll['listPrep'] == 'listMockExamSessions'] <- 'List mock exams'
+
+# plot
+ggplot(dataList_prepAll, 
+       aes(x = reorder(listPrep, total_count), 
+           y = total_count, 
+           fill = listPrep)) +
+  geom_bar(stat = "identity") +
+  # add fixed range to y-axis
+  ylim(0, 50) +
+  # remove fill legend 
+  theme(legend.position = "none") +
+  # change angle of labels on x-axis
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1)) +
+  # change x-axis and y-axis titles
+  labs(x = "Used to-do list to...",
+       y = "Total count")
+
+```
+
+List - when?
+----------------
+```{r}
+# users
+dataListWhen_users <- data %>%
+  # filter data
+  filter(userType == "user") %>%
+  # select columns
+  select(ID,
+         listThroughOutSemester,
+         listExamPhase,
+         listDayToDay,
+         listEveryWeek,
+         listEveryMonth) 
+
+# total up all columns
+dataListWhen_users <- dataListWhen_users %>%
+  untabyl() %>% 
+  adorn_totals("row") %>%
+  filter(ID == "Total")
+
+dataListWhen_users <- dataListWhen_users %>%
+  # gather into 2 columns
+  gather("listWhenPrep", "usersCount", 2:6) %>%
+  # remove ID column
+  select(listWhenPrep, usersCount)
+
+  
+# non-users
+dataListWhen_nonusers <- data %>%
+  # filter data
+  filter(userType == "nonuser") %>%
+  # select columns
+  select(ID,
+         listThroughOutSemester,
+         listExamPhase,
+         listDayToDay,
+         listEveryWeek,
+         listEveryMonth) 
+
+# total up all columns
+dataListWhen_nonusers <- dataListWhen_nonusers %>%
+  untabyl() %>% 
+  adorn_totals("row") %>%
+  filter(ID == "Total")
+
+dataListWhen_nonusers <- dataListWhen_nonusers %>%
+  # gather into 2 columns
+  gather("listWhenPrep", "nonusersCount", 2:6) %>%
+  # remove ID column
+  select(listWhenPrep, nonusersCount)
+
+
+# join user and nonuser data sets
+dataListWhen_prep <- left_join(dataListWhen_users, dataListWhen_nonusers, by = "listWhenPrep")
+
+# gather data for bar graph
+dataListWhen_prep <- dataListWhen_prep %>%
+  gather("userType", "total_count", 2:3)
+dataListWhen_prep
+
+# rename values in columns
+dataListWhen_prep['listWhenPrep'][dataListWhen_prep['listWhenPrep'] == 'listThroughOutSemester'] <- 'Throughout semester'
+dataListWhen_prep['listWhenPrep'][dataListWhen_prep['listWhenPrep'] == 'listExamPhase'] <- 'Exam phase'
+dataListWhen_prep['listWhenPrep'][dataListWhen_prep['listWhenPrep'] == 'listDayToDay'] <- 'Day to day'
+dataListWhen_prep['listWhenPrep'][dataListWhen_prep['listWhenPrep'] == 'listEveryWeek'] <- 'Every week'
+dataListWhen_prep['listWhenPrep'][dataListWhen_prep['listWhenPrep'] == 'listEveryMonth'] <- 'Every month'
+dataListWhen_prep['userType'][dataListWhen_prep['userType'] == 'usersCount'] <- 'Users'
+dataListWhen_prep['userType'][dataListWhen_prep['userType'] == 'nonusersCount'] <- 'Non-users'
+dataListWhen_prep
+
+# plot graph
+ggplot(dataListWhen_prep, 
+       aes(x = reorder(listWhenPrep, total_count),
+           y = total_count, 
+           fill = userType)) +
+  geom_bar(stat = "identity", 
+           position = position_dodge()) +
+  # add fixed range to y-axis
+  ylim(0, 25) +
+  # change x-axis and y-axis titles
+  labs(fill = "Participants",
+       x = "When to-do list was used & updated",
+       y = "Total count") +
+  # change angle of labels on x-axis
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1)) 
+
+
+# plot graph - all together
+dataListWhen_prepAll <- data %>%
+  # select columns
+  select(ID,
+         listThroughOutSemester,
+         listExamPhase,
+         listDayToDay,
+         listEveryWeek,
+         listEveryMonth) %>%
+  # filter last row of totals
+  filter(ID == "Total") %>%
+  # gather into 2 columns
+  gather("listWhenPrep", "total_count", 2:6) %>%
+  # remove ID column
+  select(listWhenPrep, total_count)
+
+# rename values in columns
+dataListWhen_prepAll['listWhenPrep'][dataListWhen_prepAll['listWhenPrep'] == 'listThroughOutSemester'] <- 'Throughout semester'
+dataListWhen_prepAll['listWhenPrep'][dataListWhen_prepAll['listWhenPrep'] == 'listExamPhase'] <- 'Exam phase'
+dataListWhen_prepAll['listWhenPrep'][dataListWhen_prepAll['listWhenPrep'] == 'listEverySession'] <- 'Every revision session'
+dataListWhen_prepAll['listWhenPrep'][dataListWhen_prepAll['listWhenPrep'] == 'listDayToDay'] <- 'Day to day'
+dataListWhen_prepAll['listWhenPrep'][dataListWhen_prepAll['listWhenPrep'] == 'listEveryWeek'] <- 'Every week'
+dataListWhen_prepAll['listWhenPrep'][dataListWhen_prepAll['listWhenPrep'] == 'listEveryMonth'] <- 'Every month'
+
+# plot
+ggplot(dataListWhen_prepAll, 
+       aes(x = reorder(listWhenPrep, total_count), 
+           y = total_count, 
+           fill = listWhenPrep)) +
+  geom_bar(stat = "identity") +
+  # add fixed range to y-axis
+  ylim(0, 40) +
+  # remove fill legend 
+  theme(legend.position = "none") +
+  # change angle of labels on x-axis
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1)) +
+  # change x-axis and y-axis titles
+  labs(x = "When to-do list was used & updated",
+       y = "Total count")
+
+
+```
+
+List - idea
+---------------
+```{r}
+# users
+dataListIdea_users <- data %>%
+  # filter user type 
+  filter(userType == "user") %>%
+  # select columns
+  select(ID,
+         listFriend, 
+         listUpperclassman,
+         listTeacher,
+         listUniForum,
+         listInternet,
+         listOnlineForum, 
+         listPrevExam) 
+
+# total up all columns
+dataListIdea_users <- dataListIdea_users %>%
+  untabyl() %>% 
+  adorn_totals("row") %>%
+  filter(ID == "Total")
+
+dataListIdea_users <- dataListIdea_users %>%
+  # gather into 2 columns
+  gather("listIdeaPrep", "usersCount", 2:8) %>%
+  # remove ID column
+  select(listIdeaPrep, usersCount)
+
+  
+# non-users
+dataListIdea_nonusers <- data %>%
+  # filter user type
+  filter(userType == "nonuser") %>%
+  # select columns
+  select(ID,
+         listFriend, 
+         listUpperclassman,
+         listTeacher,
+         listUniForum,
+         listInternet,
+         listOnlineForum, 
+         listPrevExam) 
+
+# total up all columns
+dataListIdea_nonusers <- dataListIdea_nonusers %>%
+  untabyl() %>% 
+  adorn_totals("row") %>%
+  filter(ID == "Total")
+
+dataListIdea_nonusers <- dataListIdea_nonusers %>%
+  # gather into 2 columns
+  gather("listIdeaPrep", "nonusersCount", 2:8) %>%
+  # remove ID column
+  select(listIdeaPrep, nonusersCount)
+
+
+# join user and nonuser data sets
+dataListIdea_prep <- left_join(dataListIdea_users, dataListIdea_nonusers, by = "listIdeaPrep")
+
+# gather data for bar graph
+dataListIdea_prep <- dataListIdea_prep %>%
+  gather("userType", "total_count", 2:3)
+dataListIdea_prep
+
+# rename values in columns
+dataListIdea_prep$listIdeaPrep[dataListIdea_prep$listIdeaPrep %in% c(
+  'listFriend',
+  'listUpperclassman',
+  'listTeacher',
+  'listUniForum',
+  'listInternet',
+  'listOnlineForum',
+  'listPrevExam')] <- c(
+    'Friend, classmate or family member',
+    'Upperclassmen',
+    'Teacher or associate at uni',
+    'Uni forum',
+    'Internet',
+    'Other online forum',
+    'Previous exam(s)')
+
+dataListIdea_prep$userType[dataListIdea_prep$userType %in% c(
+  'usersCount',
+  'nonusersCount')] <- c(
+    'Users',
+    'Non-users')
+
+# plot graph
+ggplot(dataListIdea_prep, 
+       aes(x = reorder(listIdeaPrep, total_count),
+           y = total_count, 
+           fill = userType)) +
+  geom_bar(stat = "identity", 
+           position = position_dodge()) +
+  # add fixed range to y-axis
+  ylim(0, 25) +
+  # change x-axis and y-axis titles  
+  labs(fill = "Participants",
+       x = "Where idea to use a to-do list came from",
+       y = "Total count") +
+  # change angle of labels on x-axis
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1)) 
+
+
+# plot graph - all together
+dataListIdea_prepAll <- data %>%
+  # select columns
+  select(ID,
+         listFriend, 
+         listUpperclassman,
+         listTeacher,
+         listUniForum,
+         listInternet,
+         listOnlineForum, 
+         listPrevExam) %>%
+  # filter last row of totals
+  filter(ID == "Total") %>%
+  # gather into 2 columns
+  gather("listIdeaPrep", "total_count", 2:8) %>%
+  # remove ID column
+  select(listIdeaPrep, total_count)
+
+# rename values in columns
+dataListIdea_prepAll$listIdeaPrep[dataListIdea_prepAll$listIdeaPrep %in% c(
+  'listFriend',
+  'listUpperclassman',
+  'listTeacher',
+  'listUniForum',
+  'listInternet',
+  'listOnlineForum',
+  'listPrevExam')] <- c(
+    'Friend, classmate or family member',
+    'Upperclassmen',
+    'Teacher or associate at uni',
+    'Uni forum',
+    'Internet',
+    'Other online forum',
+    'Previous exam(s)')
+
+# plot
+ggplot(dataListIdea_prepAll, 
+       aes(x = reorder(listIdeaPrep, total_count), 
+           y = total_count, 
+           fill = listIdeaPrep)) +
+  geom_bar(stat = "identity") +
+  # add fixed range to y-axis
+  ylim(0, 50) +
+  # remove fill legend 
+  theme(legend.position = "none") +
+  # change angle of labels on x-axis
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1)) +
+  # change x-axis and y-axis titles
+  labs(x = "Where idea to use to-do list came from",
+       y = "Total count")
+
+```
+
+
+-----------------------------------------------
+Comparing schedules, lists and other approaches
+-----------------------------------------------
+Preparation - how?
+------------------
+```{r}
+# schedule
+data_schedule <- data %>%
+  # select columns
+  select(ID,
+         scheduleCombinedModules, 
+         scheduleTopicsOnDifDays, 
+         schedulePrioTopics,
+         scheduleInclSpecTasks,
+         scheduleInclStudyGroupSessions,
+         scheduleInclDeadlines,
+         scheduleBufferTime,
+         scheduleOtherActivitiesTime,
+         scheduleGatherAndOrgMaterials,
+         scheduleMaterialCreationSessions,
+         scheduleRevisingAndTestingSessions,
+         scheduleMockExamSessions) %>%
+  # filter last row of totals
+  filter(ID == "Total") %>%
+  # gather into 2 columns
+  gather("preparation", "count", 2:13) %>%
+  # remove ID column
+  select(preparation, count) %>%
+  # add extra column with approach as values 
+  mutate(approach = "Schedule")
+
+# rename values in columns
+data_schedule$preparation[data_schedule$preparation %in% 
+                               c('scheduleCombinedModules',
+                               'scheduleTopicsOnDifDays',
+                               'schedulePrioTopics',
+                               'scheduleInclSpecTasks',
+                               'scheduleInclStudyGroupSessions',
+                               'scheduleInclDeadlines',
+                               'scheduleBufferTime',
+                               'scheduleOtherActivitiesTime',
+                               'scheduleGatherAndOrgMaterials',
+                               'scheduleMaterialCreationSessions',
+                               'scheduleRevisingAndTestingSessions',
+                               'scheduleMockExamSessions')] <- 
+  c('Combine modules',
+    'Schedule topics on dif. days',
+    'Prioritise topics',
+    'Incl. specific tasks',
+    'Incl. study group sessions',
+    'Incl. deadlines',
+    'Incl. buffer time',
+    'Schedule other activities',
+    'Gather & organise materials',
+    'Schedule material creation sessions',
+    'Schedule revision & testing',
+    'Schedule mock exams')
+  
+# lists
+data_list <- data %>%
+  select(ID,
+         listCombinedModules, 
+         listTopicsOnDifDays, 
+         listPrioTopics,
+         listInclSpecTasks,
+         listInclStudyGroupSessions,
+         listInclDeadlines,
+         listBufferTime,
+         listOtherActivitiesTime,
+         listGatherAndOrgMaterials,
+         listMaterialCreationSessions,
+         listRevisingAndTestingSessions,
+         listMockExamSessions) %>%
+  # filter last row of totals
+  filter(ID == "Total") %>%
+  # gather into 2 columns
+  gather("preparation", "count", 2:13) %>%
+  # remove ID column
+  select(preparation, count) %>%
+  # add extra column with approach as values 
+  mutate(approach = "List")
+
+# rename values in columns
+data_list$preparation[data_list$preparation %in% 
+                               c('listCombinedModules',
+                               'listTopicsOnDifDays',
+                               'listPrioTopics',
+                               'listInclSpecTasks',
+                               'listInclStudyGroupSessions',
+                               'listInclDeadlines',
+                               'listBufferTime',
+                               'listOtherActivitiesTime',
+                               'listGatherAndOrgMaterials',
+                               'listMaterialCreationSessions',
+                               'listRevisingAndTestingSessions',
+                               'listMockExamSessions')] <- 
+  c('Combine modules',
+    'Schedule topics on dif. days',
+    'Prioritise topics',
+    'Incl. specific tasks',
+    'Incl. study group sessions',
+    'Incl. deadlines',
+    'Incl. buffer time',
+    'Schedule other activities',
+    'Gather & organise materials',
+    'Schedule material creation sessions',
+    'Schedule revision & testing',
+    'Schedule mock exams')
+
+# join user and nonuser data sets
+data_approach <- bind_rows(data_schedule, data_list)
+data_approach
+
+# gather data for bar graph
+#dataSchedule_prep <- dataSchedule_prep %>%
+#  gather("approachType", "total_count", 2:3)
+#dataSchedule_prep
+
+# plot graph
+ggplot(data_approach, 
+       aes(x = reorder(preparation, count), 
+           y = count, 
+           fill = approach)) +
+  geom_bar(stat = "identity", 
+           position = position_dodge()) +
+  # change x-axis and y-axis titles
+  labs(fill = "Approach",
+       x = "Preparation",
+       y = "Total count") +
+  # change angle of labels on x-axis
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1)) 
+
+```
+Preparation - when?
+-------------------
+```{r}
+# schedule
+data_scheduleWhen <- data %>%
+  # select columns
+  select(ID,
+         scheduleThroughOutSemester,
+         scheduleExamPhase,
+         scheduleDayToDay,
+         scheduleEveryWeek,
+         scheduleEveryMonth) %>%
+  # filter last row of totals
+  filter(ID == "Total") %>%
+  # gather into 2 columns
+  gather("whenPrep", "count", 2:6) %>%
+  # remove ID column
+  select(whenPrep, count) %>%
+  # add extra column with approach as values 
+  mutate(approach = "Schedule")
+
+# rename values in columns
+data_scheduleWhen$whenPrep[data_scheduleWhen$whenPrep %in% 
+                               c('scheduleThroughOutSemester',
+                               'scheduleExamPhase',
+                               'scheduleDayToDay',
+                               'scheduleEveryWeek',
+                               'scheduleEveryMonth')] <- 
+  c('Throughout semester',
+    'Exam phase',
+    'Day to day',
+    'Every week',
+    'Every month')
+  
+# lists
+data_listWhen <- data %>%
+  select(ID,
+         listThroughOutSemester,
+         listExamPhase,
+         listDayToDay,
+         listEveryWeek,
+         listEveryMonth) %>%
+  # filter last row of totals
+  filter(ID == "Total") %>%
+  # gather into 2 columns
+  gather("whenPrep", "count", 2:6) %>%
+  # remove ID column
+  select(whenPrep, count) %>%
+  # add extra column with approach as values 
+  mutate(approach = "List")
+
+# rename values in columns
+data_listWhen$whenPrep[data_listWhen$whenPrep %in% 
+                               c('listThroughOutSemester',
+                               'listExamPhase',
+                               'listDayToDay',
+                               'listEveryWeek',
+                               'listEveryMonth')] <- 
+  c('Throughout semester',
+    'Exam phase',
+    'Day to day',
+    'Every week',
+    'Every month')
+
+# join user and nonuser data sets
+data_approachWhen <- bind_rows(data_scheduleWhen, data_listWhen)
+data_approachWhen
+
+# plot graph
+ggplot(data_approachWhen, 
+       aes(x = reorder(whenPrep, count), 
+           y = count, 
+           fill = approach)) +
+  geom_bar(stat = "identity", 
+           position = position_dodge()) +
+  # change x-axis and y-axis titles
+  labs(fill = "Approach",
+       x = "When approach was used & updated",
+       y = "Total count") +
+  # change angle of labels on x-axis
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1)) 
+
+```
+Preparation - idea?
+-------------------
+```{r}
+# --------
+# schedule
+# --------
+data_scheduleIdea <- data %>%
+  # select columns
+  select(ID,
+         scheduleFriend, 
+         scheduleUpperclassman,
+         scheduleTeacher,
+         scheduleUniForum,
+         scheduleInternet,
+         scheduleOnlineForum, 
+         schedulePrevExam) %>%
+  # filter last row of totals
+  filter(ID == "Total") %>%
+  # gather into 2 columns
+  gather("ideaPrep", "count", 2:8) %>%
+  # remove ID column
+  select(ideaPrep, count) %>%
+  # add extra column with approach as values 
+  mutate(approach = "Schedule")
+
+# rename values in columns
+data_scheduleIdea$ideaPrep[data_scheduleIdea$ideaPrep %in% 
+                               c('scheduleFriend',
+                               'scheduleUpperclassman',
+                               'scheduleTeacher',
+                               'scheduleUniForum',
+                               'scheduleInternet',
+                               'scheduleOnlineForum',
+                               'schedulePrevExam')] <- 
+  c('Friend, classmate or family member',
+    'Upperclassmen',
+    'Teacher or associate at uni',
+    'Uni forum',
+    'Internet',
+    'Other online forum',
+    'Previous exam(s)')
+
+# ----
+# list
+# ----
+data_listIdea <- data %>%
+  select(ID,
+         listFriend, 
+         listUpperclassman,
+         listTeacher,
+         listUniForum,
+         listInternet,
+         listOnlineForum, 
+         listPrevExam) %>%
+  # filter last row of totals
+  filter(ID == "Total") %>%
+  # gather into 2 columns
+  gather("ideaPrep", "count", 2:8) %>%
+  # remove ID column
+  select(ideaPrep, count) %>%
+  # add extra column with approach as values 
+  mutate(approach = "List")
+
+# rename values in columns
+data_listIdea$ideaPrep[data_listIdea$ideaPrep %in% 
+                               c('listFriend',
+                               'listUpperclassman',
+                               'listTeacher',
+                               'listUniForum',
+                               'listInternet',
+                               'listOnlineForum',
+                               'listPrevExam')] <- 
+  c('Friend, classmate or family member',
+    'Upperclassmen',
+    'Teacher or associate at uni',
+    'Uni forum',
+    'Internet',
+    'Other online forum',
+    'Previous exam(s)')
+
+# -----
+# other
+# -----
+data_otherIdea <- data %>%
+  select(ID,
+         otherApproachFriend, 
+         otherApproachUpperclassman,
+         otherApproachTeacher,
+         otherApproachUniForum,
+         otherApproachInternet,
+         otherApproachOnlineForum, 
+         otherApproachPrevExam) %>%
+  # filter last row of totals
+  filter(ID == "Total") %>%
+  # gather into 2 columns
+  gather("ideaPrep", "count", 2:8) %>%
+  # remove ID column
+  select(ideaPrep, count) %>%
+  # add extra column with approach as values 
+  mutate(approach = "Other")
+
+# rename values in columns
+data_otherIdea$ideaPrep[data_otherIdea$ideaPrep %in% 
+                               c('otherApproachFriend',
+                               'otherApproachUpperclassman',
+                               'otherApproachTeacher',
+                               'otherApproachUniForum',
+                               'otherApproachInternet',
+                               'otherApproachOnlineForum',
+                               'otherApproachPrevExam')] <- 
+  c('Friend, classmate or family member',
+    'Upperclassmen',
+    'Teacher or associate at uni',
+    'Uni forum',
+    'Internet',
+    'Other online forum',
+    'Previous exam(s)')
+
+# join user and nonuser data sets
+data_approachIdea <- bind_rows(data_scheduleIdea, data_listIdea)
+data_approachIdea <- bind_rows(data_approachIdea, data_otherIdea)
+data_approachIdea
+
+# plot graph
+ggplot(data_approachIdea, 
+       aes(x = reorder(ideaPrep, count), 
+           y = count, 
+           fill = approach)) +
+  geom_bar(stat = "identity", 
+           position = position_dodge()) +
+  labs(fill = "Approach",
+       x = "Where idea to use approach came from",
+       y = "Total count") +
+  # change angle of labels on x-axis
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1)) 
+
+```
+
+-------------------------------------------------------
+planners vs. non planners
+-------------------------------------------------------
+```{r}
+# users with a plan
+dataPrep_users_Plan <- data %>%
+  # filter users
+  filter(userType == "user") %>%
+  # select columns
+  select(ID,
+         planScheduleList, 
+        ) %>%
+ # filtered out plan
+  filter(planScheduleList == 1)
+
+# total up all columns
+dataPrep_users_Plan <- dataPrep_users_Plan %>%
+  untabyl() %>% 
+  adorn_totals("row") %>%
+  filter(ID == "Total")
+
+# users with no plan
+dataPrep_users_noPlan <- data %>%
+  # filter users
+  filter(userType == "user") %>%
+  # select columns
+  select(ID,
+         planScheduleList) %>%
+  # filtered out all non-planners
+  filter(is.na(planScheduleList))
+
+# replaced all NAs with 1
+dataPrep_users_noPlan <- dataPrep_users_noPlan %>%
+  replace(is.na(.), 1)
+
+# total up all columns
+dataPrep_users_noPlan <- dataPrep_users_noPlan %>%
+  untabyl() %>%
+  adorn_totals("row") %>%
+  filter(ID == "Total")
+
+# non-users with a plan
+dataPrep_nonusers_Plan <- data %>%
+   # filter nonusers
+  filter(userType == "nonuser") %>%
+  # select columns
+  select(ID,
+         planScheduleList, 
+        ) %>%
+  # filtered out all planners
+  filter(planScheduleList == 1)
+
+# total up all columns
+dataPrep_nonusers_Plan <- dataPrep_nonusers_Plan %>%
+  untabyl() %>% 
+  adorn_totals("row") %>%
+  filter(ID == "Total")
+
+# nonusers with no plan
+dataPrep_nonusers_noPlan <- data %>%
+  # filter non users
+  filter(userType == "nonuser") %>%
+  # select columns
+  select(ID,
+         planScheduleList) %>%
+  # filtered out all non-planners
+  filter(is.na(planScheduleList))
+
+# replaced all NAs with 1
+dataPrep_nonusers_noPlan <- dataPrep_nonusers_noPlan %>%
+  replace(is.na(.), 1)
+
+# total up all columns
+dataPrep_nonusers_noPlan <- dataPrep_nonusers_noPlan %>%
+  untabyl() %>%
+  adorn_totals("row") %>%
+  filter(ID == "Total")
+
+dataPrep_nonusers_Plan <- dataPrep_nonusers_Plan %>%
+# filter last row of totals
+  filter(ID == "Total") %>%
+  # gather into 2 columns
+  gather("preparation", "nonusersCount", 2:2) %>%
+  # remove ID column
+  select(preparation, nonusersCount)
+
+dataPrep_nonusers_noPlan <- dataPrep_nonusers_noPlan %>%
+# filter last row of totals
+  filter(ID == "Total") %>%
+  # gather into 2 columns
+  gather("preparation", "nonusersCount", 2:2) %>%
+  # remove ID column
+  select(preparation, nonusersCount)
+
+dataPrep_users_Plan <- dataPrep_users_Plan %>%
+# filter last row of totals
+  filter(ID == "Total") %>%
+  # gather into 2 columns
+  gather("preparation", "usersCount", 2:2) %>%
+  # remove ID column
+  select(preparation, usersCount)
+
+dataPrep_users_noPlan <- dataPrep_users_noPlan %>%
+# filter last row of totals
+  filter(ID == "Total") %>%
+  # gather into 2 columns
+  gather("preparation", "usersCount", 2:2) %>%
+  # remove ID column
+  select(preparation, usersCount)
+
+# join user and nonuser Planners data sets
+data_prep_planners <- left_join(dataPrep_users_Plan, dataPrep_nonusers_Plan, by = "preparation")
+
+# rename values in columns
+data_prep_planners['preparation'][data_prep_planners['preparation'] == 'planScheduleList'] <- 'Planner'
+
+# join user and nonuser Non-Planners data sets
+data_prep_non_planners <- left_join(dataPrep_users_noPlan, dataPrep_nonusers_noPlan, by = "preparation")
+
+# rename values in columns
+data_prep_non_planners['preparation'][data_prep_non_planners['preparation'] == 'planScheduleList'] <- 'Non-Planner'
+data_prep_non_planners
+
+data_prep_planner_non_planner <- union(data_prep_non_planners,data_prep_planners)
+
+names(data_prep_planner_non_planner)[names(data_prep_planner_non_planner) == "usersCount"] <- "Users"
+names(data_prep_planner_non_planner)[names(data_prep_planner_non_planner) == "nonusersCount"] <- "Non-Users"
+data_prep_planner_non_planner
+
+# gather data for bar graph
+data_prep_planner_non_planner <- data_prep_planner_non_planner %>%
+  gather("userType", "total_count", 3:2)
+data_prep_planner_non_planner
+
+
+
+# rename labels in graph - don't do
+#prep_x_labels <- c("Created FC",
+#                   "Created new material",                 
+#                   "Created notes", 
+#                   "Used schedule or list",
+#                   "Practiced exercises",
+#                   "Practiced FC", 
+#                   "Practiced mock exams", 
+#                   "Watched educational videos")
+#prep_fill_labels <- c("Non-users",
+#                      "Users")
+
+# plot graph - users vs. non-users
+ggplot(data_prep_planner_non_planner, 
+       aes(x = reorder(userType, total_count), 
+           y = total_count,
+           fill = preparation)) +
+  geom_bar(stat = "identity", 
+           position = "stack") +
+  # add fixed range to y-axis
+  ylim(0, 120) +
+  # change x-axis and y-axis titles
+  labs(fill = " ",
+       x = " ",
+       y = "Total count") +
+  # change angle of labels on x-axis
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1)) #+
+#  scale_x_discrete(labels = prep_x_labels) +
+#  scale_fill_discrete(labels = prep_fill_labels)
+
+
+# plot graph - all together
+dataPrep_all <- data %>%
+  # select columns
+  select(ID,
+         planScheduleList, 
+        ) %>%
+  # filter last row of totals
+  filter(ID == "Total") %>%
+  # gather into 2 columns
+ 
+
+  gather("preparation", "total_count", 2:2) %>%
+  # remove ID column
+  select(preparation, total_count)
+
+dataPrep_all['preparation'][dataPrep_all['preparation'] == 'planScheduleList'] <- 'Used schedule or list'
+
+ggplot(dataPrep_all, 
+       aes(x = reorder(preparation, total_count), 
+           y = total_count, 
+           fill = preparation)) +
+  geom_bar(stat = "identity", position = "stack") +
+  # add fixed range to y-axis
+  ylim(0, 120) +
+  # remove fill legend 
+  theme(legend.position = "none") +
+  # change angle of labels on x-axis
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1)) +
+  # change x-axis and y-axis titles
+  labs(fill = "Preparation", x = "Preparation",
+       y = "Total count")
+
+
+```

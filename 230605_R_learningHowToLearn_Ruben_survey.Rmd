@@ -1,0 +1,1409 @@
+---
+title: "R_learningHowToLearn"
+author: "Alison C. Holland"
+date: "2023-05-16"
+output: html_document
+---
+
+Manually cleaning the raw data before running the R script
+----------------------------------------------------------
+- remove columns A-G (up to Q1)
+- add 2 extra columns at the beginning and add userType ('users' and 'nonusers') and market ('uk' and 'dach')
+- add in text values into columns where appropriate, or create new column and also add in extra columns in code
+- remove email column (last column should be gender column)
+- remove all of Ruben's questions
+- remove columns at the end that are blank
+- remove last row with totals
+- save as .xlsx
+
+================================================================================
+
+Download and load libraries
+```{r}
+# download libraries
+#install.packages("DBI") # needed for dplyr
+#install.packages("Rcpp") # needed for dplyr
+#install.packages("plyr")
+#install.packages("dplyr")
+#install.packages("tidyr")
+#install.packages("readxl")
+#install.packages("ggplot2")
+#install.packages("fmsb")
+#install.packages("data.table")
+#install.packages("janitor")
+#install.packages("psych")
+#install.packages("likert")
+#install.packages("stopwords")
+#install.packages("rJava")
+#install.packages("qdap")
+#install.packages("tm")
+#install.packages("tidytext")
+#install.packages("stringr")
+
+# load libraries
+library(DBI) # needed for dplyr
+library(Rcpp) # needed for dplyr
+library(plyr)
+library(dplyr)
+library(tidyr)
+library(readxl)
+library(ggplot2)
+library(fmsb)
+#library(data.table)
+library(janitor)
+#library(psych)
+#library(likert)
+#library(stopwords)
+#library(rJava)
+#library(qdap)
+#library(tm)
+#library(tidytext)
+library(stringr)
+```
+
+Get and set working directory
+```{r}
+# get working directory
+getwd()
+
+# set working directory
+setwd("/Users/alison/Documents/R_scripts")
+getwd()
+```
+
+----------------------
+Load and organise data
+----------------------
+
+```{r}
+# load data
+data <- read_excel("230605_RubenSurvey_all.xlsx")
+
+# rename columns 
+names(data) <- c(
+  "userType",
+  "market",
+  "eduLevel",
+  "country",
+  # study modes - DONE
+  "campusBased",
+  "felxibleDelivery",
+  "hybrid",
+  "online",
+  # considered financial aid - DONE plus comparison
+  "consideredFinance_working",
+  "consideredFinance_grant",
+  "consideredFinance_privateLoan",
+  "consideredFinance_studentLoan",
+  "consideredFinance_familyFriends",
+  "consideredFinance_scholarship",
+  "consideredFinance_apprenticeship",
+  "consideredFinance_savings",
+  "consideredFinance_workingFull",
+  "consideredFinance_other_text",
+  # desired field(s) of study - DONE
+  "healthCare",
+  "humanities",
+  "admin",
+  "education",
+  "tech",
+  "mgmt",
+  "business",
+  "engineering",
+  "socialSci",
+  "marketing",
+  "art",
+  "law",
+  "naturalSci",
+  "envSci",
+  "otherField_text",
+  # number of institutions applied to - DONE
+  "institutions",
+  # considered studying abroad - DONE plus comparison
+  "consideredAbroad_shortTerm",
+  "consideredAbroad_none",
+  "consideredAbroad_full",
+  # type of programme interested in completing - DONE
+  "compBachelor",
+  "compMaster",
+  "compPhD",
+  "compPostDoc",
+  "compOther_text",
+  # chosen financial aid - DONE plus comparison
+  "chosenFinance_working",
+  "chosenFinance_grant",
+  "chosenFinance_privateLoan",
+  "chosenFinance_studentLoan",
+  "chosenFinance_familyFriends",
+  "chosenFinance_scholarship",
+  "chosenFinance_apprenticeship",
+  "chosenFinance_savings",
+  "chosenFinance_workingFull",
+  "chosenFinance_other_text",
+  # considered studying abroad - DONE plus comparison
+  "chosenAbroad",
+  # where chosen abroad - DONE
+  "europe",
+  "nAmerica",
+  "CSamerica",
+  "africa",
+  "asia",
+  "oceania",
+  # didn't study abroad because - DONE
+  "highTuitionCost",
+  "highLivingCost",
+  "visas",
+  "uniRequirements",
+  "macroEconomics",
+  "political",
+  "degreeTooSpecialised",
+  "stayHome",
+  "missedDeadline",
+  "otherFactorCovid",
+  "noneAbroad_other_text",
+  # gender
+  "gender")
+
+# remove top row
+data <- data[-c(1), ]
+
+# create variable to filter out all Bachelors students
+bachelor <- c("Bachelor's degree or equivalent", "Bachelor")
+
+# filter out Bachelors students
+data <- data %>%
+  #dplyr::filter(eduLevel == "Bachelor's degree or equivalent") %>%
+  dplyr::filter(eduLevel %in% bachelor) %>%
+  # filter out any incompletes / NAs in gender column
+  filter(!is.na(gender))
+
+# add in ID column
+data$ID <- seq.int(nrow(data))
+
+# move ID column to first column
+data <- data %>%
+  select(ID, everything())
+
+# convert number columns from character to numeric
+cols_num <- c(
+  # study modes
+  "campusBased",
+  "felxibleDelivery",
+  "hybrid",
+  "online",
+  # considered financial aid 
+  "consideredFinance_working",
+  "consideredFinance_grant",
+  "consideredFinance_privateLoan",
+  "consideredFinance_studentLoan",
+  "consideredFinance_familyFriends",
+  "consideredFinance_scholarship",
+  "consideredFinance_apprenticeship",
+  "consideredFinance_savings",
+  "consideredFinance_workingFull",
+  # desired field(s) of study
+  "healthCare",
+  "humanities",
+  "admin",
+  "education",
+  "tech",
+  "mgmt",
+  "business",
+  "engineering",
+  "socialSci",
+  "marketing",
+  "art",
+  "law",
+  "naturalSci",
+  "envSci",
+  # considered studying abroad
+  "consideredAbroad_shortTerm",
+  "consideredAbroad_none",
+  "consideredAbroad_full",
+  # type of programme interested in completing
+  "compBachelor",
+  "compMaster",
+  "compPhD",
+  "compPostDoc",
+  # chosen financial aid
+  "chosenFinance_working",
+  "chosenFinance_grant",
+  "chosenFinance_privateLoan",
+  "chosenFinance_studentLoan",
+  "chosenFinance_familyFriends",
+  "chosenFinance_scholarship",
+  "chosenFinance_apprenticeship",
+  "chosenFinance_savings",
+  "chosenFinance_workingFull",
+  # where chosen abroad
+  "europe",
+  "nAmerica",
+  "CSamerica",
+  "africa",
+  "asia",
+  "oceania",
+  # didn't study abroad because
+  "highTuitionCost",
+  "highLivingCost",
+  "visas",
+  "uniRequirements",
+  "macroEconomics",
+  "political",
+  "degreeTooSpecialised",
+  "stayHome",
+  "missedDeadline",
+  "otherFactorCovid")          
+data[, cols_num] <- lapply(cols_num, function(x) as.numeric(data[[x]]))
+
+# total up all columns
+data <- data %>%
+  adorn_totals("row")
+
+```
+
+
+------------------------------------------
+Study modes between UK vs. DACH markets
+------------------------------------------
+
+```{r}
+# uk
+studyModes_uk <- data %>%
+  # filter users
+  filter(market == "uk") %>%
+  # select columns
+  select(ID,
+         campusBased, 
+         felxibleDelivery, 
+         hybrid, 
+         online) %>%
+  untabyl() %>% 
+  adorn_totals("row") %>%
+  filter(ID == "Total") %>%
+  # gather into 2 columns
+  gather("study_mode", "usersCount_uk", 2:5) %>%
+  # remove ID column
+  select(study_mode, usersCount_uk)
+
+# dach
+studyModes_de <- data %>%
+  # filter users
+  filter(market == "dach") %>%
+  # select columns
+  select(ID,
+         campusBased, 
+         felxibleDelivery, 
+         hybrid, 
+         online) %>%
+  untabyl() %>% 
+  adorn_totals("row") %>%
+  filter(ID == "Total") %>%
+  # gather into 2 columns
+  gather("study_mode", "usersCount_de", 2:5) %>%
+  # remove ID column
+  select(study_mode, usersCount_de)
+
+# join data sets
+studyModes <- left_join(studyModes_uk, studyModes_de, by = "study_mode")
+
+# gather data for bar graph
+studyModes <- studyModes %>%
+  gather("market", "total_count", 2:3)
+studyModes
+
+# rename values in columns
+studyModes['market'][studyModes['market'] == 'usersCount_uk'] <- 'UK'
+studyModes['market'][studyModes['market'] == 'usersCount_de'] <- 'DACH'
+studyModes['study_mode'][studyModes['study_mode'] == 'campusBased'] <- 'Campus-based'
+studyModes['study_mode'][studyModes['study_mode'] == 'felxibleDelivery'] <- 'Flexible delivery'
+studyModes['study_mode'][studyModes['study_mode'] == 'hybrid'] <- 'Hybrid'
+studyModes['study_mode'][studyModes['study_mode'] == 'online'] <- 'Fully online'
+studyModes
+
+# plot graph - stacked
+ggplot(studyModes, 
+       aes(x = reorder(study_mode, total_count), 
+           y = total_count, 
+           fill = market)) +
+  geom_bar(stat = "identity", 
+           position = "stack") +
+  labs(fill = "Market",
+       x = "Study modes",
+       y = "Total count") +
+  # change angle of labels on x-axis
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1)) #+
+
+# plot graph - dodge
+ggplot(studyModes, 
+       aes(x = reorder(study_mode, total_count), 
+           y = total_count, 
+           fill = market)) +
+  geom_bar(stat = "identity", 
+           position = position_dodge()) +
+  labs(fill = "Market",
+       x = "Study modes",
+       y = "Total count") +
+  # change angle of labels on x-axis
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1)) #+
+#  scale_x_discrete(labels = prep_x_labels) +
+#  scale_fill_discrete(labels = prep_fill_labels)
+
+```
+
+
+------------------------------------------
+Fields of study between UK vs. DACH markets
+------------------------------------------
+
+```{r}
+# uk
+studyFields_uk <- data %>%
+  # filter users
+  filter(market == "uk") %>%
+  # select columns
+  select(ID,
+         healthCare, 
+         humanities,
+         admin,
+         education, 
+         tech,
+         mgmt, 
+         business,
+         engineering,
+         socialSci,
+         marketing,
+         art,
+         law,
+         naturalSci,
+         envSci) %>%
+  untabyl() %>% 
+  adorn_totals("row") %>%
+  filter(ID == "Total") %>%
+  # gather into 2 columns
+  gather("study_field", "usersCount_uk", 2:15) %>%
+  # remove ID column
+  select(study_field, usersCount_uk)
+
+# dach
+studyFields_de <- data %>%
+  # filter users
+  filter(market == "dach") %>%
+  # select columns
+  select(ID,
+         healthCare, 
+         humanities,
+         admin,
+         education, 
+         tech,
+         mgmt, 
+         business,
+         engineering,
+         socialSci,
+         marketing,
+         art,
+         law,
+         naturalSci,
+         envSci) %>%
+  untabyl() %>% 
+  adorn_totals("row") %>%
+  filter(ID == "Total") %>%
+  # gather into 2 columns
+  gather("study_field", "usersCount_de", 2:15) %>%
+  # remove ID column
+  select(study_field, usersCount_de)
+
+# join data sets
+studyFields <- left_join(studyFields_uk, studyFields_de, by = "study_field")
+
+# gather data for bar graph
+studyFields <- studyFields %>%
+  gather("market", "total_count", 2:3)
+studyFields
+
+# rename values in columns
+studyFields['market'][studyFields['market'] == 'usersCount_uk'] <- 'UK'
+studyFields['market'][studyFields['market'] == 'usersCount_de'] <- 'DACH'
+studyFields['study_field'][studyFields['study_field'] == 'healthCare'] <- 'Health care'
+studyFields['study_field'][studyFields['study_field'] == 'humanities'] <- 'Humanities'
+studyFields['study_field'][studyFields['study_field'] == 'admin'] <- 'Administration'
+studyFields['study_field'][studyFields['study_field'] == 'education'] <- 'Education'
+studyFields['study_field'][studyFields['study_field'] == 'tech'] <- 'Technology'
+studyFields['study_field'][studyFields['study_field'] == 'mgmt'] <- 'Management'
+studyFields['study_field'][studyFields['study_field'] == 'business'] <- 'Business'
+studyFields['study_field'][studyFields['study_field'] == 'engineering'] <- 'Engineering'
+studyFields['study_field'][studyFields['study_field'] == 'socialSci'] <- 'Social sci'
+studyFields['study_field'][studyFields['study_field'] == 'marketing'] <- 'Marketing'
+studyFields['study_field'][studyFields['study_field'] == 'art'] <- 'Art'
+studyFields['study_field'][studyFields['study_field'] == 'law'] <- 'Law'
+studyFields['study_field'][studyFields['study_field'] == 'naturalSci'] <- 'Natural sci'
+studyFields['study_field'][studyFields['study_field'] == 'envSci'] <- 'Environmental sci'
+studyFields
+
+# plot graph - stacked
+ggplot(studyFields, 
+       aes(x = reorder(study_field, total_count), 
+           y = total_count, 
+           fill = market)) +
+  geom_bar(stat = "identity", 
+           position = "stack") +
+  labs(fill = "Market",
+       x = "Fields of study",
+       y = "Total count") +
+  # change angle of labels on x-axis
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1)) #+
+
+# plot graph - dodge
+ggplot(studyFields, 
+       aes(x = reorder(study_field, total_count), 
+           y = total_count, 
+           fill = market)) +
+  geom_bar(stat = "identity", 
+           position = position_dodge()) +
+  labs(fill = "Market",
+       x = "Fields of study",
+       y = "Total count") +
+  # change angle of labels on x-axis
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1)) #+
+#  scale_x_discrete(labels = prep_x_labels) +
+#  scale_fill_discrete(labels = prep_fill_labels)
+
+```
+
+------------------------------------------
+Institutions - UK vs. DACH markets
+------------------------------------------
+
+```{r}
+# uk
+institutions_uk <- data %>%
+  # filter users
+  filter(market == "uk") %>%
+  # select columns
+  select(ID,
+         institutions) %>%
+  # count unique values
+  count(`institutions`)
+
+# rename column name
+colnames(institutions_uk)[colnames(institutions_uk) == "n"] <- "usersCount_uk"
+
+# dach
+institutions_de <- data %>%
+  # filter users
+  filter(market == "dach") %>%
+  # select columns
+  select(ID,
+         institutions) %>%
+  # count unique values
+  count(`institutions`)
+
+# rename column name
+colnames(institutions_de)[colnames(institutions_de) == "n"] <- "usersCount_de"
+
+# add missing rows
+missingValues <- data.frame(institutions = c("1", "2-3", "More than 6"),
+                            usersCount_de = c(0, 0, 0),
+                            stringsAsFactors = FALSE)
+institutions_de <- rbind(institutions_de, missingValues)
+
+# join data sets
+institutions_all <- left_join(institutions_uk, institutions_de, by = "institutions")
+
+# gather data for bar graph
+institutions_all <- institutions_all %>%
+  gather("market", "total_count", 2:3)
+institutions_all
+
+# rename values in columns
+institutions_all['market'][institutions_all['market'] == 'usersCount_uk'] <- 'UK'
+institutions_all['market'][institutions_all['market'] == 'usersCount_de'] <- 'DACH'
+institutions_all
+
+# plot graph - stacked
+ggplot(institutions_all, 
+       aes(x = reorder(institutions, total_count), 
+           y = total_count, 
+           fill = market)) +
+  geom_bar(stat = "identity", 
+           position = "stack") +
+  labs(fill = "Market",
+       x = "Number of institutions applied to",
+       y = "Total count") #+
+  # change angle of labels on x-axis
+  #theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1)) #+
+
+# plot graph - dodge
+ggplot(institutions_all, 
+       aes(x = reorder(institutions, total_count), 
+           y = total_count, 
+           fill = market)) +
+  geom_bar(stat = "identity", 
+           position = position_dodge()) +
+  labs(fill = "Market",
+       x = "Number of institutions applied to",
+       y = "Total count") #+
+  # change angle of labels on x-axis
+  #theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1)) #+
+#  scale_x_discrete(labels = prep_x_labels) +
+#  scale_fill_discrete(labels = prep_fill_labels)
+
+```
+
+
+--------------------------------------------------------------
+Type of programme interested in completing between UK vs. DACH
+--------------------------------------------------------------
+
+```{r}
+# uk
+programme_uk <- data %>%
+  # filter users
+  filter(market == "uk") %>%
+  # select columns
+  select(ID,
+         compBachelor,
+         compMaster,
+         compPhD,
+         compPostDoc) %>%
+  untabyl() %>% 
+  adorn_totals("row") %>%
+  filter(ID == "Total") %>%
+  # gather into 2 columns
+  gather("prog", "usersCount_uk", 2:5) %>%
+  # remove ID column
+  select(prog, usersCount_uk)
+
+# dach
+programme_de <- data %>%
+  # filter users
+  filter(market == "dach") %>%
+  # select columns
+  select(ID,
+         compBachelor,
+         compMaster,
+         compPhD,
+         compPostDoc) %>%
+  untabyl() %>% 
+  adorn_totals("row") %>%
+  filter(ID == "Total") %>%
+  # gather into 2 columns
+  gather("prog", "usersCount_de", 2:5) %>%
+  # remove ID column
+  select(prog, usersCount_de)
+
+# join data sets
+programme <- left_join(programme_uk, programme_de, by = "prog")
+
+# gather data for bar graph
+programme <- programme %>%
+  gather("market", "total_count", 2:3)
+programme
+
+# rename values in columns
+programme['market'][programme['market'] == 'usersCount_uk'] <- 'UK'
+programme['market'][programme['market'] == 'usersCount_de'] <- 'DACH'
+programme['prog'][programme['prog'] == 'compBachelor'] <- 'Bachelors'
+programme['prog'][programme['prog'] == 'compMaster'] <- 'Masters'
+programme['prog'][programme['prog'] == 'compPhD'] <- 'PhD'
+programme['prog'][programme['prog'] == 'compPostDoc'] <- 'Post-doc'
+programme
+
+# plot graph - stacked
+ggplot(programme, 
+       aes(x = reorder(prog, total_count), 
+           y = total_count, 
+           fill = market)) +
+  geom_bar(stat = "identity", 
+           position = "stack") +
+  labs(fill = "Market",
+       x = "Desired programme",
+       y = "Total count") +
+  # change angle of labels on x-axis
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1)) #+
+
+# plot graph - dodge
+ggplot(programme, 
+       aes(x = reorder(prog, total_count), 
+           y = total_count, 
+           fill = market)) +
+  geom_bar(stat = "identity", 
+           position = position_dodge()) +
+  labs(fill = "Market",
+       x = "Desired programme",
+       y = "Total count") +
+  # change angle of labels on x-axis
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1)) #+
+#  scale_x_discrete(labels = prep_x_labels) +
+#  scale_fill_discrete(labels = prep_fill_labels)
+
+```
+
+
+------------------------------------------
+Financial aid considered between UK vs. DACH
+------------------------------------------
+
+```{r}
+# uk
+consideredFinAid_uk <- data %>%
+  # filter users
+  filter(market == "uk") %>%
+  # select columns
+  select(ID,
+         consideredFinance_working, 
+         consideredFinance_grant, 
+         consideredFinance_privateLoan, 
+         consideredFinance_studentLoan, 
+         consideredFinance_familyFriends, 
+         consideredFinance_scholarship,
+         consideredFinance_apprenticeship, 
+         consideredFinance_savings,
+         consideredFinance_workingFull) %>%
+  untabyl() %>% 
+  adorn_totals("row") %>%
+  filter(ID == "Total") %>%
+  # gather into 2 columns
+  gather("considered_FinAid", "usersCount_uk", 2:10) %>%
+  # remove ID column
+  select(considered_FinAid, usersCount_uk)
+
+# de
+consideredFinAid_de <- data %>%
+  # filter users
+  filter(market == "dach") %>%
+  # select columns
+  select(ID,
+         consideredFinance_working, 
+         consideredFinance_grant, 
+         consideredFinance_privateLoan, 
+         consideredFinance_studentLoan, 
+         consideredFinance_familyFriends, 
+         consideredFinance_scholarship,
+         consideredFinance_apprenticeship, 
+         consideredFinance_savings,
+         consideredFinance_workingFull) %>%
+  untabyl() %>% 
+  adorn_totals("row") %>%
+  filter(ID == "Total") %>%
+  # gather into 2 columns
+  gather("considered_FinAid", "usersCount_de", 2:10) %>%
+  # remove ID column
+  select(considered_FinAid, usersCount_de)
+
+# join data sets
+consideredFinAid <- left_join(consideredFinAid_uk, consideredFinAid_de, by = "considered_FinAid")
+
+# gather data for bar graph
+consideredFinAid <- consideredFinAid %>%
+  gather("market", "total_count", 2:3)
+consideredFinAid
+
+# rename values in columns
+consideredFinAid['market'][consideredFinAid['market'] == 'usersCount_uk'] <- 'UK'
+consideredFinAid['market'][consideredFinAid['market'] == 'usersCount_de'] <- 'DACH'
+consideredFinAid['considered_FinAid'][consideredFinAid['considered_FinAid'] == 'consideredFinance_working'] <- 'Work while study (part-time)'
+consideredFinAid['considered_FinAid'][consideredFinAid['considered_FinAid'] == 'consideredFinance_grant'] <- 'Apply for grant'
+consideredFinAid['considered_FinAid'][consideredFinAid['considered_FinAid'] == 'consideredFinance_privateLoan'] <- 'Private loan'
+consideredFinAid['considered_FinAid'][consideredFinAid['considered_FinAid'] == 'consideredFinance_studentLoan'] <- 'Student loan'
+consideredFinAid['considered_FinAid'][consideredFinAid['considered_FinAid'] == 'consideredFinance_familyFriends'] <- 'Family & friends'
+consideredFinAid['considered_FinAid'][consideredFinAid['considered_FinAid'] == 'consideredFinance_scholarship'] <- 'Scholarship'
+consideredFinAid['considered_FinAid'][consideredFinAid['considered_FinAid'] == 'consideredFinance_apprenticeship'] <- 'Apprenticeship'
+consideredFinAid['considered_FinAid'][consideredFinAid['considered_FinAid'] == 'consideredFinance_savings'] <- 'Savings'
+consideredFinAid['considered_FinAid'][consideredFinAid['considered_FinAid'] == 'consideredFinance_workingFull'] <- 'Work while study (full-time)'
+consideredFinAid
+
+# plot graph - stacked
+ggplot(consideredFinAid, 
+       aes(x = reorder(considered_FinAid, total_count), 
+           y = total_count, 
+           fill = market)) +
+  geom_bar(stat = "identity", 
+           position = "stack") +
+  labs(fill = "Market",
+       x = "Type of financial aid considered",
+       y = "Total count") +
+  # change angle of labels on x-axis
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1)) #+
+
+# plot graph - dodge
+ggplot(consideredFinAid, 
+       aes(x = reorder(considered_FinAid, total_count), 
+           y = total_count, 
+           fill = market)) +
+  geom_bar(stat = "identity", 
+           position = position_dodge()) +
+  labs(fill = "Market",
+       x = "Type of financial aid considered",
+       y = "Total count") +
+  # change angle of labels on x-axis
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1)) 
+
+```
+
+------------------------------------------
+Financial aid chosen between UK vs. DACH
+------------------------------------------
+
+```{r}
+# uk
+chosenFinAid_uk <- data %>%
+  # filter users
+  filter(market == "uk") %>%
+  # select columns
+  select(ID,
+         chosenFinance_working, 
+         chosenFinance_grant, 
+         chosenFinance_privateLoan, 
+         chosenFinance_studentLoan, 
+         chosenFinance_familyFriends, 
+         chosenFinance_scholarship,
+         chosenFinance_apprenticeship, 
+         chosenFinance_savings,
+         chosenFinance_workingFull) %>%
+  untabyl() %>% 
+  adorn_totals("row") %>%
+  filter(ID == "Total") %>%
+  # gather into 2 columns
+  gather("chosen_FinAid", "usersCount_uk", 2:10) %>%
+  # remove ID column
+  select(chosen_FinAid, usersCount_uk)
+
+# dach
+chosenFinAid_de <- data %>%
+  # filter users
+  filter(market == "dach") %>%
+  # select columns
+  select(ID,
+         chosenFinance_working, 
+         chosenFinance_grant, 
+         chosenFinance_privateLoan, 
+         chosenFinance_studentLoan, 
+         chosenFinance_familyFriends, 
+         chosenFinance_scholarship,
+         chosenFinance_apprenticeship, 
+         chosenFinance_savings,
+         chosenFinance_workingFull) %>%
+  untabyl() %>% 
+  adorn_totals("row") %>%
+  filter(ID == "Total") %>%
+  # gather into 2 columns
+  gather("chosen_FinAid", "usersCount_de", 2:10) %>%
+  # remove ID column
+  select(chosen_FinAid, usersCount_de)
+
+# join data sets
+chosenFinAid <- left_join(chosenFinAid_uk, chosenFinAid_de, by = "chosen_FinAid")
+
+# gather data for bar graph
+chosenFinAid <- chosenFinAid %>%
+  gather("market", "total_count", 2:3)
+chosenFinAid
+
+# rename values in columns
+chosenFinAid['market'][chosenFinAid['market'] == 'usersCount_uk'] <- 'UK'
+chosenFinAid['market'][chosenFinAid['market'] == 'usersCount_de'] <- 'DACH'
+chosenFinAid['chosen_FinAid'][chosenFinAid['chosen_FinAid'] == 'chosenFinance_working'] <- 'Work while study (part-time)'
+chosenFinAid['chosen_FinAid'][chosenFinAid['chosen_FinAid'] == 'chosenFinance_grant'] <- 'Apply for grant'
+chosenFinAid['chosen_FinAid'][chosenFinAid['chosen_FinAid'] == 'chosenFinance_privateLoan'] <- 'Private loan'
+chosenFinAid['chosen_FinAid'][chosenFinAid['chosen_FinAid'] == 'chosenFinance_studentLoan'] <- 'Student loan'
+chosenFinAid['chosen_FinAid'][chosenFinAid['chosen_FinAid'] == 'chosenFinance_familyFriends'] <- 'Family & friends'
+chosenFinAid['chosen_FinAid'][chosenFinAid['chosen_FinAid'] == 'chosenFinance_scholarship'] <- 'Scholarship'
+chosenFinAid['chosen_FinAid'][chosenFinAid['chosen_FinAid'] == 'chosenFinance_apprenticeship'] <- 'Apprenticeship'
+chosenFinAid['chosen_FinAid'][chosenFinAid['chosen_FinAid'] == 'chosenFinance_savings'] <- 'Savings'
+chosenFinAid['chosen_FinAid'][chosenFinAid['chosen_FinAid'] == 'chosenFinance_workingFull'] <- 'Work while study (full-time)'
+chosenFinAid
+
+# plot graph - stacked
+ggplot(chosenFinAid, 
+       aes(x = reorder(chosen_FinAid, total_count), 
+           y = total_count, 
+           fill = market)) +
+  geom_bar(stat = "identity", 
+           position = "stack") +
+  labs(fill = "Market",
+       x = "Type of financial aid chosen",
+       y = "Total count") +
+  # change angle of labels on x-axis
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1)) #+
+
+# plot graph - dodge
+ggplot(chosenFinAid, 
+       aes(x = reorder(chosen_FinAid, total_count), 
+           y = total_count, 
+           fill = market)) +
+  geom_bar(stat = "identity", 
+           position = position_dodge()) +
+  labs(fill = "Market",
+       x = "Type of financial aid chosen",
+       y = "Total count") +
+  # change angle of labels on x-axis
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1)) 
+
+```
+
+
+-------------------------------------------
+Financial aid between considered vs. chosen
+-------------------------------------------
+
+```{r}
+# considered
+finAid_considered <- data %>%
+  # select columns
+  select(ID,
+         consideredFinance_working, 
+         consideredFinance_grant, 
+         consideredFinance_privateLoan, 
+         consideredFinance_studentLoan, 
+         consideredFinance_familyFriends, 
+         consideredFinance_scholarship,
+         consideredFinance_apprenticeship, 
+         consideredFinance_savings,
+         consideredFinance_workingFull) %>%
+  filter(ID == "Total") %>%
+  # gather into 2 columns
+  gather("finAid", "usersCount_considered", 2:10) %>%
+  # remove ID column
+  select(finAid, usersCount_considered) %>%
+  # remove unnecessary part of string
+  mutate_at("finAid", str_replace, "considered", "")
+
+# chosen
+finAid_chosen <- data %>%
+  # select columns
+  select(ID,
+         chosenFinance_working, 
+         chosenFinance_grant, 
+         chosenFinance_privateLoan, 
+         chosenFinance_studentLoan, 
+         chosenFinance_familyFriends, 
+         chosenFinance_scholarship,
+         chosenFinance_apprenticeship, 
+         chosenFinance_savings,
+         chosenFinance_workingFull) %>%
+  filter(ID == "Total") %>%
+  # gather into 2 columns
+  gather("finAid", "usersCount_chosen", 2:10) %>%
+  # remove ID column
+  select(finAid, usersCount_chosen) %>%
+  # remove unnecessary part of string
+  mutate_at("finAid", str_replace, "chosen", "")
+
+# join data sets
+finAid_compare <- left_join(finAid_considered, finAid_chosen, by = "finAid")
+
+# gather data for bar graph
+finAid_compare <- finAid_compare %>%
+  gather("questionType", "total_count", 2:3)
+finAid_compare
+
+# rename values in columns
+finAid_compare['questionType'][finAid_compare['questionType'] == 'usersCount_considered'] <- 'Considered financial aid'
+finAid_compare['questionType'][finAid_compare['questionType'] == 'usersCount_chosen'] <- 'Chosen financial aid'
+finAid_compare['finAid'][finAid_compare['finAid'] == 'Finance_working'] <- 'Work while study (part-time)'
+finAid_compare['finAid'][finAid_compare['finAid'] == 'Finance_grant'] <- 'Apply for grant'
+finAid_compare['finAid'][finAid_compare['finAid'] == 'Finance_privateLoan'] <- 'Private loan'
+finAid_compare['finAid'][finAid_compare['finAid'] == 'Finance_studentLoan'] <- 'Student loan'
+finAid_compare['finAid'][finAid_compare['finAid'] == 'Finance_familyFriends'] <- 'Family & friends'
+finAid_compare['finAid'][finAid_compare['finAid'] == 'Finance_scholarship'] <- 'Scholarship'
+finAid_compare['finAid'][finAid_compare['finAid'] == 'Finance_apprenticeship'] <- 'Apprenticeship'
+finAid_compare['finAid'][finAid_compare['finAid'] == 'Finance_savings'] <- 'Savings'
+finAid_compare['finAid'][finAid_compare['finAid'] == 'Finance_workingFull'] <- 'Work while study (full-time)'
+finAid_compare
+
+# plot graph - stacked
+ggplot(finAid_compare, 
+       aes(x = reorder(finAid, total_count), 
+           y = total_count, 
+           fill = questionType)) +
+  geom_bar(stat = "identity", 
+           position = "stack") +
+  # update colour pallete
+  scale_fill_brewer(palette = "Set2") +
+  # update labels
+  labs(fill = NULL,
+       x = "Type of financial aid",
+       y = "Total count") +
+  # change angle of labels on x-axis
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1)) #+
+
+# plot graph - dodge
+ggplot(finAid_compare, 
+       aes(x = reorder(finAid, total_count), 
+           y = total_count, 
+           fill = questionType)) +
+  geom_bar(stat = "identity", 
+           position = position_dodge()) +
+  # update colour pallete
+  scale_fill_brewer(palette = "Set2") +
+  # update labels
+  labs(fill = NULL,
+       x = "Type of financial aid",
+       y = "Total count") +
+  # change angle of labels on x-axis
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1)) 
+
+```
+
+-----------------------------------------------
+Considering studying abroad between UK vs. DACH
+-----------------------------------------------
+
+```{r}
+# uk
+studyAbroadConsidered_uk <- data %>%
+  # filter users
+  filter(market == "uk") %>%
+  # select columns
+  select(ID,
+         consideredAbroad_shortTerm, 
+         consideredAbroad_none, 
+         consideredAbroad_full) %>%
+  untabyl() %>% 
+  adorn_totals("row") %>%
+  filter(ID == "Total") %>%
+  # gather into 2 columns
+  gather("considered", "usersCount_uk", 2:4) %>%
+  # remove ID column
+  select(considered, usersCount_uk)
+
+# dach
+studyAbroadConsidered_de <- data %>%
+  # filter users
+  filter(market == "dach") %>%
+  # select columns
+  select(ID,
+         consideredAbroad_shortTerm, 
+         consideredAbroad_none, 
+         consideredAbroad_full) %>%
+  untabyl() %>% 
+  adorn_totals("row") %>%
+  filter(ID == "Total") %>%
+  # gather into 2 columns
+  gather("considered", "usersCount_de", 2:4) %>%
+  # remove ID column
+  select(considered, usersCount_de)
+
+# join data sets
+studyAbroadConsidered <- left_join(studyAbroadConsidered_uk, studyAbroadConsidered_de, by = "considered")
+
+# gather data for bar graph
+studyAbroadConsidered <- studyAbroadConsidered %>%
+  gather("market", "total_count", 2:3)
+studyAbroadConsidered
+
+# rename values in columns
+studyAbroadConsidered['market'][studyAbroadConsidered['market'] == 'usersCount_uk'] <- 'UK'
+studyAbroadConsidered['market'][studyAbroadConsidered['market'] == 'usersCount_de'] <- 'DACH'
+studyAbroadConsidered['considered'][studyAbroadConsidered['considered'] == 'consideredAbroad_shortTerm'] <- 'Short-term study abroad'
+studyAbroadConsidered['considered'][studyAbroadConsidered['considered'] == 'consideredAbroad_none'] <- 'No study abroad'
+studyAbroadConsidered['considered'][studyAbroadConsidered['considered'] == 'consideredAbroad_full'] <- 'Full-time study abroad'
+studyAbroadConsidered
+
+# plot graph - stacked
+ggplot(studyAbroadConsidered, 
+       aes(x = reorder(considered, total_count), 
+           y = total_count, 
+           fill = market)) +
+  geom_bar(stat = "identity", 
+           position = "stack") +
+  labs(fill = "Market",
+       x = "Considered options to study abroad",
+       y = "Total count") +
+  # change angle of labels on x-axis
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1)) #+
+
+# plot graph - dodge
+ggplot(studyAbroadConsidered, 
+       aes(x = reorder(considered, total_count), 
+           y = total_count, 
+           fill = market)) +
+  geom_bar(stat = "identity", 
+           position = position_dodge()) +
+  labs(fill = "Market",
+       x = "Considered options to study abroad",
+       y = "Total count") +
+  # change angle of labels on x-axis
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1)) #+
+#  scale_x_discrete(labels = prep_x_labels) +
+#  scale_fill_discrete(labels = prep_fill_labels)
+
+```
+
+
+-----------------------------------------------
+Chose to study abroad between UK vs. DACH
+-----------------------------------------------
+
+```{r}
+# uk
+studyAbroadChosen_uk <- data %>%
+  # filter users
+  filter(market == "uk") %>%
+  # select columns
+  select(ID,
+         chosenAbroad) %>%
+  # count unique values
+  count(`chosenAbroad`)
+
+# rename column name
+colnames(studyAbroadChosen_uk)[colnames(studyAbroadChosen_uk) == "n"] <- "usersCount_uk"
+
+# dach
+studyAbroadChosen_de <- data %>%
+  # filter users
+  filter(market == "dach") %>%
+  # select columns
+  select(ID,
+         chosenAbroad) %>%
+  # count unique values
+  count(`chosenAbroad`)
+
+# rename column name
+colnames(studyAbroadChosen_de)[colnames(studyAbroadChosen_de) == "n"] <- "usersCount_de"
+
+# add missing rows
+missingValues <- data.frame(chosenAbroad = c("Study abroad short-term (e.g. for a term, semester or full year)?", "Study abroad for the full duration?"),
+                            usersCount_de = c(0, 0),
+                            stringsAsFactors = FALSE)
+studyAbroadChosen_de <- rbind(studyAbroadChosen_de, missingValues)
+
+# join data sets
+studyAbroadChosen <- left_join(studyAbroadChosen_uk, studyAbroadChosen_de, by = "chosenAbroad")
+
+# gather data for bar graph
+studyAbroadChosen <- studyAbroadChosen %>%
+  gather("market", "total_count", 2:3)
+studyAbroadChosen
+
+# rename values in columns
+studyAbroadChosen['market'][studyAbroadChosen['market'] == 'usersCount_uk'] <- 'UK'
+studyAbroadChosen['market'][studyAbroadChosen['market'] == 'usersCount_de'] <- 'DACH'
+studyAbroadChosen['chosenAbroad'][studyAbroadChosen['chosenAbroad'] == 'Study abroad short-term (e.g. for a term, semester or full year)?'] <- 'Short-term study abroad'
+studyAbroadChosen['chosenAbroad'][studyAbroadChosen['chosenAbroad'] == 'Only study in the country you currently live in?'] <- 'No study abroad'
+studyAbroadChosen['chosenAbroad'][studyAbroadChosen['chosenAbroad'] == 'Study abroad for the full duration?'] <- 'Full-time study abroad'
+studyAbroadChosen
+
+# plot graph - stacked
+ggplot(studyAbroadChosen, 
+       aes(x = reorder(chosenAbroad, total_count), 
+           y = total_count, 
+           fill = market)) +
+  geom_bar(stat = "identity", 
+           position = "stack") +
+  labs(fill = "Market",
+       x = "Chosen option to study abroad",
+       y = "Total count") +
+  # change angle of labels on x-axis
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1)) #+
+
+# plot graph - dodge
+ggplot(studyAbroadChosen, 
+       aes(x = reorder(chosenAbroad, total_count), 
+           y = total_count, 
+           fill = market)) +
+  geom_bar(stat = "identity", 
+           position = position_dodge()) +
+  labs(fill = "Market",
+       x = "Chosen option to study abroad",
+       y = "Total count") +
+  # change angle of labels on x-axis
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1)) #+
+#  scale_x_discrete(labels = prep_x_labels) +
+#  scale_fill_discrete(labels = prep_fill_labels)
+
+```
+
+
+---------------------------------------------
+Studying abroad between considered vs. chosen
+---------------------------------------------
+
+```{r}
+# considered
+studyAbroad_considered <- data %>%
+  # select columns
+  select(ID,
+         consideredAbroad_shortTerm, 
+         consideredAbroad_none, 
+         consideredAbroad_full) %>%
+  filter(ID == "Total") %>%
+  # gather into 2 columns
+  gather("abroad", "usersCount_considered", 2:4) %>%
+  # remove ID column
+  select(abroad, usersCount_considered) %>%
+  # remove unnecessary part of string
+  mutate_at("abroad", str_replace, "considered", "")
+
+# chosen
+studyAbroad_chosen <- data %>%
+  # filter users
+  filter(chosenAbroad != "-") %>%
+  # select columns
+  select(ID,
+         chosenAbroad) %>%
+  # count unique values
+  count(`chosenAbroad`)
+
+# rename column name
+colnames(studyAbroad_chosen)[colnames(studyAbroad_chosen) == "chosenAbroad"] <- "abroad"
+colnames(studyAbroad_chosen)[colnames(studyAbroad_chosen) == "n"] <- "usersCount_chosen"
+
+# rename values in columns
+studyAbroad_chosen['abroad'][studyAbroad_chosen['abroad'] == 'Study abroad short-term (e.g. for a term, semester or full year)?'] <- 'Abroad_shortTerm'
+studyAbroad_chosen['abroad'][studyAbroad_chosen['abroad'] == 'Only study in the country you currently live in?'] <- 'Abroad_none'
+studyAbroad_chosen['abroad'][studyAbroad_chosen['abroad'] == 'Study abroad for the full duration?'] <- 'Abroad_full'
+
+# join data sets
+studyAbroad_compare <- left_join(studyAbroad_considered, studyAbroad_chosen, by = "abroad")
+
+# gather data for bar graph
+studyAbroad_compare <- studyAbroad_compare %>%
+  gather("questionType", "total_count", 2:3)
+studyAbroad_compare
+
+# rename values in columns
+studyAbroad_compare['questionType'][studyAbroad_compare['questionType'] == 'usersCount_considered'] <- 'Considered studying abroad'
+studyAbroad_compare['questionType'][studyAbroad_compare['questionType'] == 'usersCount_chosen'] <- 'Decision to study abroad'
+studyAbroad_compare['abroad'][studyAbroad_compare['abroad'] == 'Abroad_shortTerm'] <- 'Short-term study abroad'
+studyAbroad_compare['abroad'][studyAbroad_compare['abroad'] == 'Abroad_none'] <- 'No study abroad'
+studyAbroad_compare['abroad'][studyAbroad_compare['abroad'] == 'Abroad_full'] <- 'Full-time study abroad'
+studyAbroad_compare
+
+# plot graph - stacked
+ggplot(studyAbroad_compare, 
+       aes(x = reorder(abroad, total_count), 
+           y = total_count, 
+           fill = questionType)) +
+  geom_bar(stat = "identity", 
+           position = "stack") +
+  # update colour pallete
+  scale_fill_brewer(palette = "Accent") +
+  # update labels
+  labs(fill = NULL,
+       x = "Options to study abroad",
+       y = "Total count") +
+  # change angle of labels on x-axis
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1)) #+
+
+# plot graph - dodge
+ggplot(studyAbroad_compare, 
+       aes(x = reorder(abroad, total_count), 
+           y = total_count, 
+           fill = questionType)) +
+  geom_bar(stat = "identity", 
+           position = position_dodge()) +
+  # update colour pallete
+  scale_fill_brewer(palette = "Accent") +
+  # update labels
+  labs(fill = NULL,
+       x = "Options to study abroad",
+       y = "Total count") +
+  # change angle of labels on x-axis
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1)) 
+
+```
+
+
+-----------------------------------------
+Where studied abroad between UK vs. DACH
+-----------------------------------------
+
+```{r}
+# uk
+studyAbroadWhere_uk <- data %>%
+  # filter users
+  filter(market == "uk") %>%
+  # select columns
+  select(ID,
+         europe, 
+         nAmerica, 
+         CSamerica, 
+         africa, 
+         asia,
+         oceania) %>%
+  untabyl() %>% 
+  adorn_totals("row") %>%
+  filter(ID == "Total") %>%
+  # gather into 2 columns
+  gather("whereStudy", "usersCount_uk", 2:7) %>%
+  # remove ID column
+  select(whereStudy, usersCount_uk)
+
+# dach
+studyAbroadWhere_de <- data %>%
+  # filter users
+  filter(market == "dach") %>%
+  # select columns
+  select(ID,
+         europe, 
+         nAmerica, 
+         CSamerica, 
+         africa, 
+         asia,
+         oceania) %>%
+  untabyl() %>% 
+  adorn_totals("row") %>%
+  filter(ID == "Total") %>%
+  # gather into 2 columns
+  gather("whereStudy", "usersCount_de", 2:7) %>%
+  # remove ID column
+  select(whereStudy, usersCount_de)
+
+# join data sets
+studyAbroadWhere <- left_join(studyAbroadWhere_uk, studyAbroadWhere_de, by = "whereStudy")
+
+# gather data for bar graph
+studyAbroadWhere <- studyAbroadWhere %>%
+  gather("market", "total_count", 2:3)
+studyAbroadWhere
+
+# rename values in columns
+studyAbroadWhere['market'][studyAbroadWhere['market'] == 'usersCount_uk'] <- 'UK'
+studyAbroadWhere['market'][studyAbroadWhere['market'] == 'usersCount_de'] <- 'DACH'
+studyAbroadWhere['whereStudy'][studyAbroadWhere['whereStudy'] == 'europe'] <- 'Europe'
+studyAbroadWhere['whereStudy'][studyAbroadWhere['whereStudy'] == 'nAmerica'] <- 'North America'
+studyAbroadWhere['whereStudy'][studyAbroadWhere['whereStudy'] == 'CSamerica'] <- 'Central & South America'
+studyAbroadWhere['whereStudy'][studyAbroadWhere['whereStudy'] == 'africa'] <- 'Africa'
+studyAbroadWhere['whereStudy'][studyAbroadWhere['whereStudy'] == 'asia'] <- 'Asia'
+studyAbroadWhere['whereStudy'][studyAbroadWhere['whereStudy'] == 'oceania'] <- 'Oceania'
+studyAbroadWhere
+
+# plot graph - stacked
+ggplot(studyAbroadWhere, 
+       aes(x = reorder(whereStudy, total_count), 
+           y = total_count, 
+           fill = market)) +
+  geom_bar(stat = "identity", 
+           position = "stack") +
+  labs(fill = "Market",
+       x = "Where students study abroad",
+       y = "Total count") +
+  # change angle of labels on x-axis
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1)) #+
+
+# plot graph - dodge
+ggplot(studyAbroadWhere, 
+       aes(x = reorder(whereStudy, total_count), 
+           y = total_count, 
+           fill = market)) +
+  geom_bar(stat = "identity", 
+           position = position_dodge()) +
+  labs(fill = "Market",
+       x = "Where students study abroad",
+       y = "Total count") +
+  # change angle of labels on x-axis
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1)) 
+
+```
+
+
+-----------------------------------------
+Why not study abroad between UK vs. DACH
+-----------------------------------------
+      
+```{r}
+# uk
+noStudyAbroad_uk <- data %>%
+  # filter users
+  filter(market == "uk") %>%
+  # select columns
+  select(ID,
+         highTuitionCost, 
+         highLivingCost,
+         visas, 
+         uniRequirements,
+         macroEconomics, 
+         political,
+         degreeTooSpecialised,
+         stayHome,
+         missedDeadline, 
+         otherFactorCovid) %>%
+  untabyl() %>% 
+  adorn_totals("row") %>%
+  filter(ID == "Total") %>%
+  # gather into 2 columns
+  gather("reasonNoStudy", "usersCount_uk", 2:11) %>%
+  # remove ID column
+  select(reasonNoStudy, usersCount_uk)
+
+# dach
+noStudyAbroad_de <- data %>%
+  # filter users
+  filter(market == "dach") %>%
+  # select columns
+  select(ID,
+         highTuitionCost, 
+         highLivingCost,
+         visas, 
+         uniRequirements,
+         macroEconomics, 
+         political,
+         degreeTooSpecialised,
+         stayHome,
+         missedDeadline, 
+         otherFactorCovid) %>%
+  untabyl() %>% 
+  adorn_totals("row") %>%
+  filter(ID == "Total") %>%
+  # gather into 2 columns
+  gather("reasonNoStudy", "usersCount_de", 2:11) %>%
+  # remove ID column
+  select(reasonNoStudy, usersCount_de)
+
+# join data sets
+noStudyAbroad <- left_join(noStudyAbroad_uk, noStudyAbroad_de, by = "reasonNoStudy")
+
+# gather data for bar graph
+noStudyAbroad <- noStudyAbroad %>%
+  gather("market", "total_count", 2:3)
+noStudyAbroad
+
+# rename values in columns
+noStudyAbroad['market'][noStudyAbroad['market'] == 'usersCount_uk'] <- 'UK'
+noStudyAbroad['market'][noStudyAbroad['market'] == 'usersCount_de'] <- 'DACH'
+noStudyAbroad['reasonNoStudy'][noStudyAbroad['reasonNoStudy'] == 'highTuitionCost'] <- 'Too high tuition costs'
+noStudyAbroad['reasonNoStudy'][noStudyAbroad['reasonNoStudy'] == 'highLivingCost'] <- 'Too high living costs'
+noStudyAbroad['reasonNoStudy'][noStudyAbroad['reasonNoStudy'] == 'visas'] <- 'Visa & migration restrictions'
+noStudyAbroad['reasonNoStudy'][noStudyAbroad['reasonNoStudy'] == 'uniRequirements'] <- 'Uni requirements not met'
+noStudyAbroad['reasonNoStudy'][noStudyAbroad['reasonNoStudy'] == 'macroEconomics'] <- 'Macro-economics'
+noStudyAbroad['reasonNoStudy'][noStudyAbroad['reasonNoStudy'] == 'political'] <- 'Political situation'
+noStudyAbroad['reasonNoStudy'][noStudyAbroad['reasonNoStudy'] == 'degreeTooSpecialised'] <- 'Degree too specialised'
+noStudyAbroad['reasonNoStudy'][noStudyAbroad['reasonNoStudy'] == 'stayHome'] <- 'Preferred to stay in home country'
+noStudyAbroad['reasonNoStudy'][noStudyAbroad['reasonNoStudy'] == 'missedDeadline'] <- 'Missed deadline'
+noStudyAbroad['reasonNoStudy'][noStudyAbroad['reasonNoStudy'] == 'otherFactorCovid'] <- 'Other factors, e.g. Covid'
+noStudyAbroad
+
+# plot graph - stacked
+ggplot(noStudyAbroad, 
+       aes(x = reorder(reasonNoStudy, total_count), 
+           y = total_count, 
+           fill = market)) +
+  geom_bar(stat = "identity", 
+           position = "stack") +
+  labs(fill = "Market",
+       x = "Why students did not study abroad",
+       y = "Total count") +
+  # change angle of labels on x-axis
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1)) #+
+
+# plot graph - dodge
+ggplot(noStudyAbroad, 
+       aes(x = reorder(reasonNoStudy, total_count), 
+           y = total_count, 
+           fill = market)) +
+  geom_bar(stat = "identity", 
+           position = position_dodge()) +
+  labs(fill = "Market",
+       x = "Why students did not study abroad",
+       y = "Total count") +
+  # change angle of labels on x-axis
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1)) 
+
+```
+
+
+
+
+
+
